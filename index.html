@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bug Hunter — IBM AI Builders Challenge</title>
+
+  <!-- =====================================================================
+       CSS CUSTOM PROPERTIES & GLOBAL RESET
+       ===================================================================== -->
+  <style>
+    /* ---------- Theme tokens ---------- */
+    :root {
+      --bg:          #07090b;
+      --surface:     #0d1117;
+      --surface2:    #111820;
+      --border:      #162216;
+      --neon:        #39ff5a;
+      --neon-dim:    #1a6b2e;
+      --neon-glow:   rgba(57,255,90,0.32);
+      --neon-glow2:  rgba(57,255,90,0.12);
+      --amber:       #ffb300;
+      --amber-glow:  rgba(255,179,0,0.3);
+      --red:         #ff3c3c;
+      --red-glow:    rgba(255,60,60,0.35);
+      --cyan:        #00e5ff;
+      --cyan-glow:   rgba(0,229,255,0.3);
+      --text:        #b8f5c4;
+      --text-dim:    #6fa878;
+      --muted:       #3d6645;
+      --font:        'Courier New', Courier, monospace;
+      --server-h:    52px;
+      --hud-h:       46px;
+      --radius:      3px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* Thin styled scrollbar */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--neon-dim); border-radius: 2px; }
+    * { scrollbar-width: thin; scrollbar-color: var(--neon-dim) var(--bg); }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      overflow: hidden;
+      user-select: none;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ---------- Screen containers ---------- */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.4rem;
+      padding: 2rem;
+      text-align: center;
+    }
+    .screen[hidden] { display: none; }
+
+    /* ---------- Typography ---------- */
+    h1 {
+      font-size: clamp(2rem, 7vw, 3.8rem);
+      color: var(--neon);
+      text-shadow: 0 0 20px var(--neon-glow), 0 0 50px var(--neon-glow2);
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+    }
+    h2 {
+      font-size: clamp(1.1rem, 3.5vw, 1.9rem);
+      color: var(--cyan);
+      text-shadow: 0 0 14px var(--cyan-glow);
+      letter-spacing: .08em;
+    }
+    p, li {
+      font-size: clamp(.78rem, 1.9vw, .98rem);
+      line-height: 1.75;
+      color: var(--text);
+    }
+
+    /* ---------- Buttons ---------- */
+    .btn {
+      cursor: pointer;
+      background: transparent;
+      border: 1.5px solid var(--neon);
+      color: var(--neon);
+      font-family: var(--font);
+      font-size: clamp(.82rem, 2.1vw, 1rem);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      padding: .62em 2.4em;
+      border-radius: var(--radius);
+      transition: background .15s, box-shadow .15s, color .15s;
+    }
+    .btn:hover, .btn:focus-visible {
+      background: var(--neon);
+      color: var(--bg);
+      box-shadow: 0 0 24px var(--neon-glow);
+      outline: none;
+    }
+    .btn-danger {
+      border-color: var(--red);
+      color: var(--red);
+    }
+    .btn-danger:hover, .btn-danger:focus-visible {
+      background: var(--red);
+      color: var(--bg);
+      box-shadow: 0 0 24px var(--red-glow);
+    }
+
+    /* ---------- Stat chips (game over screen) ---------- */
+    .stats {
+      display: flex;
+      gap: 1.8rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      font-size: clamp(.72rem, 1.9vw, .9rem);
+    }
+    .stat { color: var(--muted); }
+    .stat span { color: var(--neon); font-weight: bold; }
+
+    /* =====================================================================
+       CANVAS BACKGROUND (start + game-over screens)
+       ===================================================================== */
+    #bgCanvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Scanlines overlay */
+    #scanlines {
+      position: fixed; inset: 0; pointer-events: none; z-index: 100;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,.07) 0px,
+        rgba(0,0,0,.07) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+    }
+
+    /* Vignette */
+    #vignette {
+      position: fixed; inset: 0; pointer-events: none; z-index: 99;
+      background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.7) 100%);
+    }
+
+    /* Screens sit above canvas */
+    .screen { z-index: 10; }
+
+    /* =====================================================================
+       START SCREEN EXTRAS
+       ===================================================================== */
+    .howto {
+      list-style: none;
+      text-align: left;
+      max-width: 440px;
+      border: 1px solid var(--border);
+      padding: 1rem 1.6rem;
+      border-radius: 4px;
+      background: rgba(13,17,23,.88);
+      backdrop-filter: blur(4px);
+    }
+    .howto li { padding: .28rem 0; }
+    .howto li::before {
+      content: '';
+      display: inline-block;
+      width: .6em; height: .6em;
+      border-right: 2px solid var(--neon);
+      border-bottom: 2px solid var(--neon);
+      transform: rotate(-45deg) translateY(-1px);
+      margin-right: .55em;
+      vertical-align: middle;
+    }
+
+    kbd {
+      background: var(--surface2);
+      border: 1px solid var(--neon-dim);
+      color: var(--cyan);
+      padding: .1em .4em;
+      border-radius: 2px;
+      font-size: .88em;
+    }
+
+    /* =====================================================================
+       GAME WRAP
+       ===================================================================== */
+    #gameWrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      z-index: 10;
+    }
+    #gameWrap[hidden] { display: none; }
+
+    /* HUD bar */
+    #hud {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: var(--hud-h);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.4rem;
+      background: rgba(7,9,11,.9);
+      border-bottom: 1px solid var(--border);
+      z-index: 20;
+      font-size: .84rem;
+      letter-spacing: .05em;
+    }
+    #hud .hud-left, #hud .hud-right {
+      display: flex;
+      gap: 1.2rem;
+      align-items: center;
+    }
+    #hud .hud-center { font-size: .78rem; color: var(--muted); }
+
+    /* Life hearts */
+    #livesDisplay {
+      display: flex;
+      gap: .3rem;
+      align-items: center;
+    }
+    .life-icon { transition: opacity .2s; }
+    .life-icon.dead { opacity: .15; }
+
+    #scoreDisplay { color: var(--neon); font-weight: bold; }
+    #comboDisplay { color: var(--cyan); min-width: 72px; text-align: right; }
+    #levelDisplay { color: var(--amber); }
+
+    /* Production server bar */
+    #serverBar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: var(--server-h);
+      background: linear-gradient(90deg, #0a1a0a 0%, #0f230f 50%, #0a1a0a 100%);
+      border-top: 2px solid var(--neon-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .9rem;
+      font-size: .88rem;
+      color: var(--neon-dim);
+      letter-spacing: .2em;
+      z-index: 20;
+      text-shadow: 0 0 10px var(--neon-glow2);
+    }
+    .srv-pulse {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--neon);
+      box-shadow: 0 0 8px var(--neon), 0 0 16px var(--neon-glow);
+      animation: pulse 1.5s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .3; transform: scale(.85); }
+    }
+
+    /* Play field */
+    #field {
+      position: absolute;
+      top: var(--hud-h);
+      left: 0; right: 0;
+      bottom: var(--server-h);
+      overflow: hidden;
+    }
+
+    /* Bug elements */
+    .bug {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: default;
+      z-index: 10;
+    }
+    .bug-icon {
+      font-size: 0;        /* hide emoji rendering if any slip through */
+      line-height: 0;
+      animation: bugWiggle .65s ease-in-out infinite alternate;
+      filter: drop-shadow(0 0 7px rgba(255,60,60,.65));
+    }
+    @keyframes bugWiggle {
+      from { transform: rotate(-9deg) scale(1); }
+      to   { transform: rotate(9deg) scale(1.1); }
+    }
+    .bug-word {
+      font-size: clamp(.6rem, 1.7vw, .8rem);
+      color: var(--red);
+      letter-spacing: .07em;
+      text-shadow: 0 0 8px var(--red-glow);
+      white-space: nowrap;
+      background: rgba(7,9,11,.75);
+      padding: 1px 6px;
+      border-radius: 2px;
+      border: 1px solid rgba(255,60,60,.2);
+    }
+    .bug-word .typed { color: var(--neon); text-shadow: 0 0 6px var(--neon-glow); }
+
+    /* Particle */
+    .particle {
+      position: absolute;
+      pointer-events: none;
+      border-radius: 50%;
+      z-index: 30;
+    }
+
+    /* Type input area */
+    #inputArea {
+      position: absolute;
+      bottom: calc(var(--server-h) + 12px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      gap: .7rem;
+    }
+    #typeInput {
+      background: rgba(7,15,7,.9);
+      border: 1.5px solid var(--neon-dim);
+      color: var(--neon);
+      font-family: var(--font);
+      font-size: clamp(.88rem, 2.4vw, 1.08rem);
+      padding: .42em .9em;
+      border-radius: var(--radius);
+      width: clamp(160px, 32vw, 280px);
+      caret-color: var(--neon);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      letter-spacing: .04em;
+    }
+    #typeInput:focus {
+      border-color: var(--neon);
+      box-shadow: 0 0 16px var(--neon-glow2), 0 0 4px var(--neon-glow);
+    }
+    #typeCursor {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--neon);
+      box-shadow: 0 0 8px var(--neon);
+      animation: pulse 1s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    /* Screen-shake keyframe */
+    @keyframes shake {
+      0%  { transform: translate(0,0) rotate(0deg); }
+      14% { transform: translate(-7px, 5px) rotate(-.6deg); }
+      28% { transform: translate(6px,-4px) rotate(.5deg); }
+      42% { transform: translate(-5px, 3px) rotate(-.35deg); }
+      57% { transform: translate(4px,-2px) rotate(.25deg); }
+      71% { transform: translate(-2px, 1px) rotate(-.12deg); }
+      85% { transform: translate(1px,-1px) rotate(.06deg); }
+      100%{ transform: translate(0,0) rotate(0deg); }
+    }
+    .shake { animation: shake .48s ease-in-out; }
+
+    /* Combo flash */
+    .combo-flash {
+      position: absolute;
+      pointer-events: none;
+      font-size: clamp(.9rem, 3vw, 1.5rem);
+      font-weight: bold;
+      color: var(--cyan);
+      text-shadow: 0 0 16px var(--cyan-glow);
+      z-index: 35;
+      animation: floatUp .9s ease-out forwards;
+      white-space: nowrap;
+    }
+    @keyframes floatUp {
+      0%   { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-65px) scale(1.45); }
+    }
+
+    /* Level-up flash */
+    .level-flash {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: rgba(57,255,90,.06);
+      z-index: 40;
+      animation: lvlFlash .6s ease-out forwards;
+    }
+    @keyframes lvlFlash {
+      0%   { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* Pause overlay */
+    #pauseOverlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,.78);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      backdrop-filter: blur(2px);
+    }
+    #pauseOverlay[hidden] { display: none; }
+
+    /* Game-over screen */
+    .score-box {
+      border: 1px solid var(--neon-dim);
+      padding: 1.4rem 2.8rem;
+      border-radius: 4px;
+      background: rgba(13,17,23,.9);
+      text-align: center;
+    }
+    .score-box .final {
+      font-size: clamp(2rem, 6vw, 3.2rem);
+      color: var(--neon);
+      text-shadow: 0 0 24px var(--neon-glow);
+    }
+    .score-box .hs {
+      font-size: clamp(.78rem, 1.9vw, .98rem);
+      color: var(--amber);
+      margin-top: .5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .4rem;
+    }
+
+    /* Responsive tweaks */
+    @media (max-width: 520px) {
+      .howto { font-size: .75rem; padding: .8rem 1rem; }
+      #hud   { font-size: .7rem; padding: 0 .8rem; }
+      .score-box { padding: 1rem 1.6rem; }
+      #typeInput { width: clamp(140px, 55vw, 240px); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- =========================================================================
+     BACKGROUND CANVAS (particle network — behind all screens)
+     ========================================================================= -->
+<canvas id="bgCanvas" aria-hidden="true"></canvas>
+
+<!-- Scanlines + vignette overlays -->
+<div id="scanlines" aria-hidden="true"></div>
+<div id="vignette"  aria-hidden="true"></div>
+
+<!-- =========================================================================
+     SCREEN: START
+     ========================================================================= -->
+<div id="screenStart" class="screen" role="main">
+  <h1>
+    <!-- SVG bug icon (no emoji) -->
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true" style="flex-shrink:0">
+      <ellipse cx="24" cy="28" rx="10" ry="13" fill="#39ff5a" opacity=".9"/>
+      <ellipse cx="24" cy="16" rx="6"  ry="6"  fill="#39ff5a" opacity=".9"/>
+      <!-- legs left -->
+      <line x1="14" y1="24" x2="4"  y2="20" stroke="#39ff5a" stroke-width="2" stroke-linecap="round"/>
+      <line x1="14" y1="29" x2="3"  y2="29" stroke="#39ff5a" stroke-width="2" stroke-linecap="round"/>
+      <line x1="14" y1="34" x2="4"  y2="38" stroke="#39ff5a" stroke-width="2" stroke-linecap="round"/>
+      <!-- legs right -->
+      <line x1="34" y1="24" x2="44" y2="20" stroke="#39ff5a" stroke-width="2" stroke-linecap="round"/>
+      <line x1="34" y1="29" x2="45" y2="29" stroke="#39ff5a" stroke-width="2" stroke-linecap="round"/>
+      <line x1="34" y1="34" x2="44" y2="38" stroke="#39ff5a" stroke-width="2" stroke-linecap="round"/>
+      <!-- antennae -->
+      <line x1="21" y1="11" x2="17" y2="4"  stroke="#39ff5a" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="27" y1="11" x2="31" y2="4"  stroke="#39ff5a" stroke-width="1.5" stroke-linecap="round"/>
+      <!-- eyes -->
+      <circle cx="22" cy="16" r="1.5" fill="#07090b"/>
+      <circle cx="26" cy="16" r="1.5" fill="#07090b"/>
+    </svg>
+    BUG HUNTER
+  </h1>
+
+  <p style="color:var(--muted);letter-spacing:.12em;font-size:.82rem">
+    IBM AI Builders Challenge &mdash; IT Track
+  </p>
+
+  <h2>Basmi semua bug sebelum menyentuh server!</h2>
+
+  <ul class="howto" aria-label="Cara bermain">
+    <li>Bug jatuh dari atas membawa nama error</li>
+    <li>Ketik nama error lalu tekan <kbd>Enter</kbd> untuk membasminya</li>
+    <li>Bug mencapai server = kehilangan 1 nyawa (3 nyawa total)</li>
+    <li>Combo beruntun melipatgandakan skor</li>
+    <li>Kesulitan meningkat setiap 30 detik</li>
+    <li>Tekan <kbd>Esc</kbd> untuk pause</li>
+  </ul>
+
+  <button class="btn" id="btnStart" autofocus>
+    <!-- Play triangle -->
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true" style="vertical-align:middle;margin-right:.4em">
+      <polygon points="2,1 11,6 2,11"/>
+    </svg>
+    MULAI PERMAINAN
+  </button>
+
+  <p id="startHsDisplay" style="color:var(--amber);font-size:.84rem;min-height:1.4em"></p>
+  <p style="color:var(--muted);font-size:.74rem">Skor tertinggi tersimpan otomatis di perangkat ini</p>
+</div>
+
+<!-- =========================================================================
+     SCREEN: GAME OVER
+     ========================================================================= -->
+<div id="screenGameOver" class="screen" hidden>
+  <h2 style="color:var(--red);text-shadow:0 0 18px var(--red-glow)">— GAME OVER —</h2>
+  <p style="color:var(--text-dim)">Server produksi telah dihancurkan oleh bug!</p>
+
+  <div class="score-box">
+    <div class="final" id="goFinalScore">0</div>
+    <div style="color:var(--muted);font-size:.78rem;margin-top:.3rem;letter-spacing:.1em">SKOR AKHIR</div>
+    <div class="hs">
+      <!-- Trophy SVG -->
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="var(--amber)" aria-hidden="true">
+        <path d="M10 14c-3.3 0-6-2.7-6-6V3h12v5c0 3.3-2.7 6-6 6z"/>
+        <rect x="8" y="14" width="4" height="3" rx="1"/>
+        <rect x="5" y="17" width="10" height="2" rx="1"/>
+        <path d="M4 5H2a2 2 0 000 4h2M16 5h2a2 2 0 010 4h-2" fill="none" stroke="var(--amber)" stroke-width="1.5"/>
+      </svg>
+      Rekor: <span id="goHighScore">0</span>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">Level <span id="goLevel">1</span></div>
+    <div class="stat">Bug dibasmi <span id="goKilled">0</span></div>
+    <div class="stat">Combo maks. <span id="goMaxCombo">0</span></div>
+  </div>
+
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center">
+    <button class="btn" id="btnRestart">
+      <!-- Reload icon -->
+      <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:middle;margin-right:.4em">
+        <path d="M17 10A7 7 0 1 1 10 3"/>
+        <polyline points="14,0 17,3 14,6"/>
+      </svg>
+      MAIN LAGI
+    </button>
+    <button class="btn" id="btnGoToStart">
+      <!-- Home icon -->
+      <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="vertical-align:middle;margin-right:.4em">
+        <path d="M10 2L2 9h2v9h5v-5h2v5h5V9h2L10 2z"/>
+      </svg>
+      MENU UTAMA
+    </button>
+  </div>
+</div>
+
+<!-- =========================================================================
+     GAME WRAP (HUD + field + server bar + input)
+     ========================================================================= -->
+<div id="gameWrap" hidden aria-label="Area permainan">
+
+  <!-- HUD -->
+  <div id="hud" role="status" aria-live="polite" aria-atomic="false">
+    <div class="hud-left">
+      <span id="livesDisplay" aria-label="Nyawa tersisa"></span>
+      <span id="scoreDisplay" aria-label="Skor">SKOR: 0</span>
+    </div>
+    <div class="hud-center" id="levelDisplay" aria-label="Level saat ini">LVL 1 &mdash; 00:00</div>
+    <div class="hud-right">
+      <span id="comboDisplay" aria-label="Combo saat ini">COMBO &times;1</span>
+    </div>
+  </div>
+
+  <!-- Play field -->
+  <div id="field" aria-hidden="true"></div>
+
+  <!-- Type input -->
+  <div id="inputArea">
+    <input
+      id="typeInput"
+      type="text"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
+      placeholder="ketik nama bug…"
+      aria-label="Ketik nama bug untuk membasminya"
+    />
+    <div id="typeCursor" aria-hidden="true"></div>
+  </div>
+
+  <!-- Production server bar -->
+  <div id="serverBar" aria-label="Server produksi">
+    <div class="srv-pulse" aria-hidden="true"></div>
+    <!-- Server rack SVG icon -->
+    <svg width="20" height="14" viewBox="0 0 24 16" fill="none" stroke="var(--neon-dim)" stroke-width="1.5" aria-hidden="true" style="flex-shrink:0">
+      <rect x="1" y="1" width="22" height="6" rx="1.5"/>
+      <rect x="1" y="9" width="22" height="6" rx="1.5"/>
+      <circle cx="4.5" cy="4" r="1" fill="var(--neon)"/>
+      <circle cx="4.5" cy="12" r="1" fill="var(--neon)"/>
+      <line x1="8" y1="4" x2="20" y2="4" stroke-width="1" stroke-linecap="round"/>
+      <line x1="8" y1="12" x2="20" y2="12" stroke-width="1" stroke-linecap="round"/>
+    </svg>
+    SERVER PRODUKSI
+    <div class="srv-pulse" aria-hidden="true"></div>
+  </div>
+
+  <!-- Pause overlay -->
+  <div id="pauseOverlay" hidden role="dialog" aria-modal="true" aria-label="Permainan dijeda">
+    <h2 style="display:flex;align-items:center;gap:.5rem">
+      <!-- Pause bars SVG -->
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="var(--cyan)" aria-hidden="true">
+        <rect x="5"  y="4" width="4" height="16" rx="1"/>
+        <rect x="15" y="4" width="4" height="16" rx="1"/>
+      </svg>
+      DIJEDA
+    </h2>
+    <p style="color:var(--text-dim)">
+      Tekan <kbd>Esc</kbd> atau klik tombol untuk melanjutkan
+    </p>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center">
+      <button class="btn" id="btnResume">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true" style="vertical-align:middle;margin-right:.4em">
+          <polygon points="2,1 11,6 2,11"/>
+        </svg>
+        LANJUTKAN
+      </button>
+      <button class="btn btn-danger" id="btnQuit">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" style="vertical-align:middle;margin-right:.4em">
+          <line x1="1" y1="1" x2="11" y2="11"/>
+          <line x1="11" y1="1" x2="1" y2="11"/>
+        </svg>
+        KELUAR
+      </button>
+    </div>
+  </div>
+
+</div><!-- /gameWrap -->
+
+
+<!-- =========================================================================
+     JAVASCRIPT — GAME ENGINE
+     ========================================================================= -->
+<script>
+/* =============================================================================
+   SECTION 1: CONSTANTS & CONFIGURATION
+   ============================================================================= */
+
+/** Error words that fall as bugs */
+const BUG_WORDS = [
+  'NullPointer', 'SyntaxError', 'Segfault', 'Timeout',
+  '404', 'StackOverflow', 'OutOfMemory', 'DeadLock',
+  'Undefined', 'TypeError', 'RaceCondition', '500',
+  'BufferOverflow', 'DivByZero', 'NaN', 'SIGKILL',
+  'Panic', 'Freeze', 'Crash', 'Infinite'
+];
+
+/**
+ * SVG markup strings for each bug type (no emoji).
+ * Each icon is 32×32 and uses neon-tinted fills.
+ */
+const BUG_SVG = [
+  // Classic bug — green body
+  `<svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+    <ellipse cx="16" cy="20" rx="7" ry="9" fill="#39ff5a" opacity=".88"/>
+    <ellipse cx="16" cy="11" rx="4.5" ry="4.5" fill="#39ff5a" opacity=".88"/>
+    <line x1="9" y1="17" x2="3"  y2="14" stroke="#39ff5a" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="9" y1="21" x2="2"  y2="21" stroke="#39ff5a" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="9" y1="25" x2="3"  y2="28" stroke="#39ff5a" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="23" y1="17" x2="29" y2="14" stroke="#39ff5a" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="23" y1="21" x2="30" y2="21" stroke="#39ff5a" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="23" y1="25" x2="29" y2="28" stroke="#39ff5a" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="14" y1="7" x2="11" y2="2"  stroke="#39ff5a" stroke-width="1.2" stroke-linecap="round"/>
+    <line x1="18" y1="7" x2="21" y2="2"  stroke="#39ff5a" stroke-width="1.2" stroke-linecap="round"/>
+    <circle cx="14.5" cy="11" r="1" fill="#07090b"/>
+    <circle cx="17.5" cy="11" r="1" fill="#07090b"/>
+  </svg>`,
+  // Spider — red body
+  `<svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+    <circle cx="16" cy="18" r="7" fill="#ff3c3c" opacity=".85"/>
+    <circle cx="16" cy="11" r="4" fill="#ff3c3c" opacity=".85"/>
+    <line x1="9" y1="15" x2="2"  y2="10" stroke="#ff3c3c" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="9" y1="19" x2="2"  y2="20" stroke="#ff3c3c" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="9" y1="23" x2="3"  y2="27" stroke="#ff3c3c" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="23" y1="15" x2="30" y2="10" stroke="#ff3c3c" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="23" y1="19" x2="30" y2="20" stroke="#ff3c3c" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="23" y1="23" x2="29" y2="27" stroke="#ff3c3c" stroke-width="1.5" stroke-linecap="round"/>
+    <circle cx="14" cy="11" r="1.2" fill="#07090b"/>
+    <circle cx="18" cy="11" r="1.2" fill="#07090b"/>
+  </svg>`,
+  // Cyan bug
+  `<svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+    <ellipse cx="16" cy="21" rx="7" ry="8.5" fill="#00e5ff" opacity=".8"/>
+    <ellipse cx="16" cy="12" rx="5"  ry="5"  fill="#00e5ff" opacity=".8"/>
+    <line x1="9" y1="18" x2="2"  y2="14" stroke="#00e5ff" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="9" y1="23" x2="2"  y2="23" stroke="#00e5ff" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="23" y1="18" x2="30" y2="14" stroke="#00e5ff" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="23" y1="23" x2="30" y2="23" stroke="#00e5ff" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="14" y1="8" x2="12" y2="2" stroke="#00e5ff" stroke-width="1.2" stroke-linecap="round"/>
+    <line x1="18" y1="8" x2="20" y2="2" stroke="#00e5ff" stroke-width="1.2" stroke-linecap="round"/>
+    <circle cx="14.5" cy="12" r="1.1" fill="#07090b"/>
+    <circle cx="17.5" cy="12" r="1.1" fill="#07090b"/>
+  </svg>`,
+  // Amber bug
+  `<svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+    <ellipse cx="16" cy="20" rx="8" ry="9" fill="#ffb300" opacity=".82"/>
+    <circle cx="16" cy="11" r="4.5" fill="#ffb300" opacity=".82"/>
+    <line x1="8" y1="16" x2="1"  y2="12" stroke="#ffb300" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="8" y1="21" x2="1"  y2="21" stroke="#ffb300" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="8" y1="26" x2="2"  y2="29" stroke="#ffb300" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="24" y1="16" x2="31" y2="12" stroke="#ffb300" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="24" y1="21" x2="31" y2="21" stroke="#ffb300" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="24" y1="26" x2="30" y2="29" stroke="#ffb300" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="14" y1="7" x2="11" y2="1" stroke="#ffb300" stroke-width="1.2" stroke-linecap="round"/>
+    <line x1="18" y1="7" x2="21" y2="1" stroke="#ffb300" stroke-width="1.2" stroke-linecap="round"/>
+    <circle cx="14.5" cy="11" r="1" fill="#07090b"/>
+    <circle cx="17.5" cy="11" r="1" fill="#07090b"/>
+  </svg>`,
+];
+
+/** Base difficulty values — scaled per level */
+const BASE_CONFIG = {
+  spawnInterval: 2600,   // ms between spawns
+  bugSpeed:      40,     // px/second
+  maxBugs:       5,
+};
+
+/** How much harder each level gets */
+const LEVEL_SCALE = {
+  spawnFactor: 0.87,     // multiply spawnInterval per level
+  speedFactor: 1.17,     // multiply speed per level
+  maxBugsDelta: 1,       // add per level
+};
+
+const LIVES_MAX        = 3;
+const LEVEL_DURATION   = 30_000;  // ms
+const COMBO_RESET_TIME = 3_500;   // ms after last kill before combo resets
+const PARTICLE_COUNT   = 22;
+const HS_KEY           = 'bugHunterHS';
+
+/* =============================================================================
+   SECTION 2: GAME STATE
+   ============================================================================= */
+let state = {};
+
+function resetState() {
+  state = {
+    running:    false,
+    paused:     false,
+    score:      0,
+    lives:      LIVES_MAX,
+    level:      1,
+    combo:      1,
+    maxCombo:   1,
+    bugsKilled: 0,
+    bugs:       [],
+    lastTime:   0,
+    elapsed:    0,
+    nextSpawn:  0,
+    comboTimer: null,
+  };
+}
+
+/* =============================================================================
+   SECTION 3: DOM REFERENCES
+   ============================================================================= */
+const $ = id => document.getElementById(id);
+
+const screenStart    = $('screenStart');
+const screenGameOver = $('screenGameOver');
+const gameWrap       = $('gameWrap');
+const field          = $('field');
+const livesDisplay   = $('livesDisplay');
+const scoreDisplay   = $('scoreDisplay');
+const comboDisplay   = $('comboDisplay');
+const levelDisplay   = $('levelDisplay');
+const typeInput      = $('typeInput');
+const pauseOverlay   = $('pauseOverlay');
+const startHsDisplay = $('startHsDisplay');
+
+/* =============================================================================
+   SECTION 4: WEB AUDIO ENGINE
+   ============================================================================= */
+let audioCtx = null;
+
+function ensureAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
+
+/**
+ * Synthesise a sound effect via Web Audio API — no audio files required.
+ * @param {'kill'|'miss'|'combo'|'gameover'|'level'} type
+ */
+function playSound(type) {
+  try {
+    ensureAudio();
+    const ctx = audioCtx;
+    const now = ctx.currentTime;
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    switch (type) {
+
+      case 'kill': {
+        // Short satisfying blip: square wave, rising pitch
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(420, now);
+        osc.frequency.exponentialRampToValueAtTime(900, now + 0.09);
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.start(now); osc.stop(now + 0.18);
+        break;
+      }
+
+      case 'miss': {
+        // Low descending thud
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(230, now);
+        osc.frequency.exponentialRampToValueAtTime(55, now + 0.32);
+        gain.gain.setValueAtTime(0.26, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+        osc.start(now); osc.stop(now + 0.38);
+        break;
+      }
+
+      case 'combo': {
+        // Ascending chime: triangle, two octaves
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(660, now);
+        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.18);
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+        osc.start(now); osc.stop(now + 0.24);
+        break;
+      }
+
+      case 'level': {
+        // Two-note upbeat jingle
+        const osc2  = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.connect(gain2); gain2.connect(ctx.destination);
+        osc.type  = 'square'; osc2.type = 'square';
+        osc.frequency.setValueAtTime(523, now);
+        osc2.frequency.setValueAtTime(698, now + 0.13);
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        gain2.gain.setValueAtTime(0.0, now);
+        gain2.gain.setValueAtTime(0.14, now + 0.13);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.33);
+        osc.start(now);       osc.stop(now + 0.18);
+        osc2.start(now + 0.13); osc2.stop(now + 0.33);
+        break;
+      }
+
+      case 'gameover': {
+        // Descending doom tone: sawtooth
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(420, now);
+        osc.frequency.exponentialRampToValueAtTime(70, now + 0.9);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.95);
+        osc.start(now); osc.stop(now + 0.95);
+        break;
+      }
+    }
+  } catch (_) { /* audio failures are always silent */ }
+}
+
+/* =============================================================================
+   SECTION 5: DIFFICULTY CALCULATOR
+   ============================================================================= */
+function getDifficulty(level) {
+  const l = level - 1;
+  return {
+    spawnInterval: Math.max(550,
+      BASE_CONFIG.spawnInterval * Math.pow(LEVEL_SCALE.spawnFactor, l)),
+    bugSpeed: BASE_CONFIG.bugSpeed * Math.pow(LEVEL_SCALE.speedFactor, l),
+    maxBugs:  BASE_CONFIG.maxBugs + l * LEVEL_SCALE.maxBugsDelta,
+  };
+}
+
+/* =============================================================================
+   SECTION 6: SCREEN MANAGEMENT
+   ============================================================================= */
+function showScreen(name) {
+  screenStart.hidden    = name !== 'start';
+  screenGameOver.hidden = name !== 'gameover';
+  gameWrap.hidden       = name !== 'game';
+}
+
+/* =============================================================================
+   SECTION 7: LIVES DISPLAY (SVG hearts, no emoji)
+   ============================================================================= */
+/** Filled heart SVG */
+function heartSVG(filled) {
+  const col = filled ? '#ffb300' : '#1a1a1a';
+  const glow = filled ? 'drop-shadow(0 0 4px rgba(255,179,0,.7))' : 'none';
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="${col}" style="filter:${glow}" aria-hidden="true">
+    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+  </svg>`;
+}
+
+function renderLives() {
+  livesDisplay.innerHTML = '';
+  for (let i = 0; i < LIVES_MAX; i++) {
+    const span = document.createElement('span');
+    span.className = 'life-icon' + (i >= state.lives ? ' dead' : '');
+    span.setAttribute('aria-label', i < state.lives ? 'nyawa' : 'nyawa hilang');
+    span.innerHTML = heartSVG(i < state.lives);
+    livesDisplay.appendChild(span);
+  }
+}
+
+/* =============================================================================
+   SECTION 8: HUD UPDATE
+   ============================================================================= */
+function updateHUD() {
+  scoreDisplay.textContent = `SKOR: ${state.score.toLocaleString('id-ID')}`;
+
+  // Combo colour: cyan >= 2, amber >= 5
+  if (state.combo >= 5) {
+    comboDisplay.style.color = 'var(--amber)';
+    comboDisplay.style.textShadow = '0 0 12px var(--amber-glow)';
+  } else if (state.combo >= 2) {
+    comboDisplay.style.color = 'var(--cyan)';
+    comboDisplay.style.textShadow = '0 0 10px var(--cyan-glow)';
+  } else {
+    comboDisplay.style.color = 'var(--muted)';
+    comboDisplay.style.textShadow = 'none';
+  }
+  comboDisplay.textContent = `COMBO \u00d7${state.combo}`;
+
+  const secs = Math.floor(state.elapsed / 1000);
+  const mm   = String(Math.floor(secs / 60)).padStart(2, '0');
+  const ss   = String(secs % 60).padStart(2, '0');
+  levelDisplay.textContent = `LVL ${state.level} \u2014 ${mm}:${ss}`;
+}
+
+/* =============================================================================
+   SECTION 9: BUG SPAWNING
+   ============================================================================= */
+function randomWord() {
+  return BUG_WORDS[Math.floor(Math.random() * BUG_WORDS.length)];
+}
+
+function spawnBug() {
+  const diff   = getDifficulty(state.level);
+  if (state.bugs.length >= diff.maxBugs) return;
+
+  const word  = randomWord();
+  const svg   = BUG_SVG[Math.floor(Math.random() * BUG_SVG.length)];
+  const fieldW = field.clientWidth;
+  const bugW  = 80;
+  const x     = Math.random() * Math.max(10, fieldW - bugW);
+
+  // Container
+  const el = document.createElement('div');
+  el.className  = 'bug';
+  el.style.left = `${x}px`;
+  el.style.top  = '-70px';
+
+  // Icon (SVG, no emoji)
+  const iconEl = document.createElement('div');
+  iconEl.className = 'bug-icon';
+  iconEl.style.fontSize = '0';  // suppress any residual text
+  iconEl.innerHTML = svg;
+  iconEl.setAttribute('aria-hidden', 'true');
+
+  // Word label
+  const wordEl = document.createElement('div');
+  wordEl.className   = 'bug-word';
+  wordEl.textContent = word;
+
+  el.appendChild(iconEl);
+  el.appendChild(wordEl);
+  field.appendChild(el);
+
+  state.bugs.push({
+    word,
+    el,
+    wordEl,
+    y:     -70,
+    speed: diff.bugSpeed,
+  });
+}
+
+/* =============================================================================
+   SECTION 10: PARTICLE EXPLOSION
+   ============================================================================= */
+function spawnParticles(x, y) {
+  const palette = ['#39ff5a', '#00e5ff', '#ffb300', '#ff3c3c'];
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const p     = document.createElement('div');
+    p.className = 'particle';
+
+    const size  = 3 + Math.random() * 7;
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = 25 + Math.random() * 100;
+    const dur   = 480 + Math.random() * 420;
+    const hue   = palette[Math.floor(Math.random() * palette.length)];
+
+    p.style.cssText = `
+      left:${x}px; top:${y}px;
+      width:${size}px; height:${size}px;
+      background:${hue};
+      box-shadow: 0 0 5px ${hue};
+      transition: transform ${dur}ms ease-out, opacity ${dur}ms ease-out;
+    `;
+    field.appendChild(p);
+
+    // Force reflow so CSS transition fires from initial position
+    p.getBoundingClientRect(); // eslint-disable-line no-unused-expressions
+    p.style.transform = `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px)`;
+    p.style.opacity   = '0';
+
+    setTimeout(() => p.remove(), dur + 60);
+  }
+}
+
+/* =============================================================================
+   SECTION 11: COMBO FLASH
+   ============================================================================= */
+function showComboFlash(x, y, combo) {
+  if (combo < 2) return;
+  const el = document.createElement('div');
+  el.className  = 'combo-flash';
+  el.textContent = `COMBO \u00d7${combo}!`;
+  el.style.left = `${x - 40}px`;
+  el.style.top  = `${y - 20}px`;
+  field.appendChild(el);
+  setTimeout(() => el.remove(), 980);
+}
+
+/* =============================================================================
+   SECTION 12: SCREEN SHAKE
+   ============================================================================= */
+function triggerShake() {
+  gameWrap.classList.remove('shake');
+  void gameWrap.offsetWidth; // force reflow to restart animation
+  gameWrap.classList.add('shake');
+  gameWrap.addEventListener('animationend', () =>
+    gameWrap.classList.remove('shake'), { once: true });
+}
+
+/* =============================================================================
+   SECTION 13: LEVEL-UP FLASH
+   ============================================================================= */
+function triggerLevelFlash() {
+  const el = document.createElement('div');
+  el.className = 'level-flash';
+  field.appendChild(el);
+  setTimeout(() => el.remove(), 650);
+}
+
+/* =============================================================================
+   SECTION 14: KILL A BUG
+   ============================================================================= */
+function killBug(bug) {
+  const rect  = bug.el.getBoundingClientRect();
+  const fRect = field.getBoundingClientRect();
+  const cx    = rect.left - fRect.left + rect.width  / 2;
+  const cy    = rect.top  - fRect.top  + rect.height / 2;
+
+  bug.el.remove();
+  state.bugs = state.bugs.filter(b => b !== bug);
+
+  // Score with combo multiplier
+  const pts = 10 * state.combo;
+  state.score += pts;
+  state.bugsKilled++;
+
+  // Combo management
+  state.combo++;
+  if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+  clearTimeout(state.comboTimer);
+  state.comboTimer = setTimeout(() => {
+    state.combo = 1;
+    updateHUD();
+  }, COMBO_RESET_TIME);
+
+  // Visual & audio effects
+  spawnParticles(cx, cy);
+  showComboFlash(cx, cy, state.combo - 1);
+  playSound(state.combo > 3 ? 'combo' : 'kill');
+  updateHUD();
+}
+
+/* =============================================================================
+   SECTION 15: BUG REACHES BOTTOM
+   ============================================================================= */
+function bugMissed(bug) {
+  bug.el.remove();
+  state.bugs = state.bugs.filter(b => b !== bug);
+
+  state.lives--;
+  state.combo = 1;
+  clearTimeout(state.comboTimer);
+
+  renderLives();
+  triggerShake();
+  playSound('miss');
+  updateHUD();
+
+  if (state.lives <= 0) endGame();
+}
+
+/* =============================================================================
+   SECTION 16: INPUT HANDLING
+   ============================================================================= */
+function escHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+typeInput.addEventListener('input', () => {
+  if (!state.running || state.paused) return;
+
+  const val     = typeInput.value.trim().toLowerCase();
+  const matched = state.bugs.find(b => b.word.toLowerCase() === val);
+
+  if (matched) {
+    killBug(matched);
+    typeInput.value = '';
+    // Reset partial highlights on remaining bugs
+    for (const bug of state.bugs) {
+      bug.wordEl.innerHTML = escHtml(bug.word);
+    }
+    return;
+  }
+
+  // Partial match highlight
+  for (const bug of state.bugs) {
+    const w     = bug.word.toLowerCase();
+    const tLen  = val.length;
+    const match = val.length > 0 && w.startsWith(val);
+    bug.wordEl.innerHTML = match
+      ? `<span class="typed">${escHtml(bug.word.slice(0, tLen))}</span>${escHtml(bug.word.slice(tLen))}`
+      : escHtml(bug.word);
+  }
+});
+
+typeInput.addEventListener('keydown', e => {
+  if (e.key === 'Escape') togglePause();
+});
+
+/* =============================================================================
+   SECTION 17: PAUSE / RESUME
+   ============================================================================= */
+function togglePause() {
+  if (!state.running) return;
+  state.paused = !state.paused;
+  pauseOverlay.hidden = !state.paused;
+  if (!state.paused) {
+    state.lastTime = performance.now();
+    typeInput.focus();
+    requestAnimationFrame(gameLoop);
+  }
+}
+
+$('btnResume').addEventListener('click', togglePause);
+$('btnQuit').addEventListener('click', () => {
+  state.running = false;
+  endGame();
+});
+
+/* =============================================================================
+   SECTION 18: MAIN GAME LOOP (requestAnimationFrame)
+   ============================================================================= */
+function gameLoop(timestamp) {
+  if (!state.running || state.paused) return;
+
+  const dt = Math.min(timestamp - state.lastTime, 100); // cap delta to 100ms
+  state.lastTime = timestamp;
+  state.elapsed += dt;
+
+  // Check for level-up every LEVEL_DURATION ms
+  const newLevel = 1 + Math.floor(state.elapsed / LEVEL_DURATION);
+  if (newLevel > state.level) {
+    state.level = newLevel;
+    playSound('level');
+    triggerLevelFlash();
+  }
+
+  // Spawn timer
+  state.nextSpawn -= dt;
+  if (state.nextSpawn <= 0) {
+    spawnBug();
+    state.nextSpawn = getDifficulty(state.level).spawnInterval;
+  }
+
+  // Move each bug downward; collect those that passed the bottom
+  const fieldH   = field.clientHeight;
+  const toMiss   = [];
+  for (const bug of state.bugs) {
+    bug.y += bug.speed * (dt / 1000);
+    bug.el.style.top = `${bug.y}px`;
+    if (bug.y >= fieldH) toMiss.push(bug);
+  }
+  for (const bug of toMiss) bugMissed(bug);
+
+  updateHUD();
+  requestAnimationFrame(gameLoop);
+}
+
+/* =============================================================================
+   SECTION 19: START / END GAME
+   ============================================================================= */
+function startGame() {
+  resetState();
+  field.innerHTML = '';
+  typeInput.value = '';
+
+  showScreen('game');
+  renderLives();
+  updateHUD();
+
+  // Slight delay so AudioContext can be unlocked post user-gesture
+  setTimeout(() => {
+    state.running   = true;
+    state.lastTime  = performance.now();
+    state.nextSpawn = 500;
+    requestAnimationFrame(gameLoop);
+    typeInput.focus();
+  }, 80);
+}
+
+function endGame() {
+  state.running = false;
+
+  // Persist high score to localStorage
+  const hs = parseInt(localStorage.getItem(HS_KEY) || '0', 10);
+  if (state.score > hs) localStorage.setItem(HS_KEY, String(state.score));
+
+  playSound('gameover');
+
+  // Populate game-over screen
+  $('goFinalScore').textContent = state.score.toLocaleString('id-ID');
+  $('goHighScore').textContent  = Math.max(state.score, hs).toLocaleString('id-ID');
+  $('goLevel').textContent      = state.level;
+  $('goKilled').textContent     = state.bugsKilled;
+  $('goMaxCombo').textContent   = state.maxCombo;
+
+  setTimeout(() => showScreen('gameover'), 400);
+}
+
+/* =============================================================================
+   SECTION 20: BUTTON WIRING
+   ============================================================================= */
+$('btnStart').addEventListener('click',       startGame);
+$('btnRestart').addEventListener('click',     startGame);
+$('btnGoToStart').addEventListener('click',  () => showScreen('start'));
+
+// Global Escape key handler (also fires when field is focused, not input)
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state.running) {
+    e.preventDefault();
+    togglePause();
+  }
+});
+
+/* =============================================================================
+   SECTION 21: BACKGROUND CANVAS — animated particle network
+   ============================================================================= */
+(function initCanvas() {
+  const canvas = $('bgCanvas');
+  const ctx    = canvas.getContext('2d');
+  const NODE_COUNT   = 55;
+  const LINK_DIST    = 140;
+  const NODE_COLOR   = 'rgba(57,255,90,';    // neon green base
+  const LINE_COLOR   = 'rgba(57,255,90,';
+
+  let nodes = [];
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  function createNodes() {
+    nodes = [];
+    for (let i = 0; i < NODE_COUNT; i++) {
+      nodes.push({
+        x:  Math.random() * canvas.width,
+        y:  Math.random() * canvas.height,
+        vx: (Math.random() - .5) * .55,
+        vy: (Math.random() - .5) * .55,
+        r:  1 + Math.random() * 2,
+      });
+    }
+  }
+
+  function drawFrame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Move nodes
+    for (const n of nodes) {
+      n.x += n.vx;
+      n.y += n.vy;
+      if (n.x < 0 || n.x > canvas.width)  n.vx *= -1;
+      if (n.y < 0 || n.y > canvas.height) n.vy *= -1;
+    }
+
+    // Draw edges
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx   = nodes[i].x - nodes[j].x;
+        const dy   = nodes[i].y - nodes[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < LINK_DIST) {
+          const alpha = (1 - dist / LINK_DIST) * 0.22;
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.strokeStyle = LINE_COLOR + alpha + ')';
+          ctx.lineWidth   = .8;
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Draw nodes
+    for (const n of nodes) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fillStyle = NODE_COLOR + '0.55)';
+      ctx.fill();
+    }
+
+    requestAnimationFrame(drawFrame);
+  }
+
+  window.addEventListener('resize', () => { resize(); createNodes(); });
+  resize();
+  createNodes();
+  drawFrame();
+})();
+
+/* =============================================================================
+   SECTION 22: BOOT — show saved high score on start screen
+   ============================================================================= */
+(function boot() {
+  const hs = parseInt(localStorage.getItem(HS_KEY) || '0', 10);
+  if (hs > 0) {
+    startHsDisplay.innerHTML =
+      // Trophy SVG inline
+      `<svg width="13" height="13" viewBox="0 0 20 20" fill="var(--amber)" aria-hidden="true" style="vertical-align:middle;margin-right:.3em">
+        <path d="M10 14c-3.3 0-6-2.7-6-6V3h12v5c0 3.3-2.7 6-6 6z"/>
+        <rect x="8" y="14" width="4" height="3" rx="1"/>
+        <rect x="5" y="17" width="10" height="2" rx="1"/>
+        <path d="M4 5H2a2 2 0 000 4h2M16 5h2a2 2 0 010 4h-2" fill="none" stroke="var(--amber)" stroke-width="1.5"/>
+      </svg>` +
+      `Rekor tertinggi: <strong style="color:var(--neon)">${hs.toLocaleString('id-ID')}</strong>`;
+  }
+  showScreen('start');
+  resetState(); // initialise state so Escape key guard works from the start
+})();
+</script>
+</body>
+</html>

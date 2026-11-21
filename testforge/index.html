@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TestForge — AI Test Case Generator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ======================================================================
+       CANVAS BACKGROUND — animated particle network (drawn by app.js)
+       ====================================================================== -->
+  <canvas id="bgCanvas" aria-hidden="true"></canvas>
+
+  <!-- ======================================================================
+       SIDEBAR
+       ====================================================================== -->
+  <aside id="sidebar" aria-label="Panel navigasi">
+
+    <!-- Logo -->
+    <div class="sidebar-header">
+      <div class="logo-mark" aria-hidden="true">
+        <!-- Flask / lab icon -->
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="M7 2h6M8 2v6L4 15a1 1 0 00.9 1.5h10.2A1 1 0 0016 15l-4-7V2" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="8" cy="13" r=".9" fill="#fff" opacity=".7"/>
+          <circle cx="11" cy="15" r=".6" fill="#fff" opacity=".5"/>
+        </svg>
+      </div>
+      <div class="logo-words">
+        <span class="logo-name">TestForge</span>
+        <span class="logo-sub">IBM AI Builders</span>
+      </div>
+      <button id="btnToggleSidebar" class="icon-btn" aria-label="Tutup sidebar">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- New chat -->
+    <div class="sidebar-new-chat">
+      <button class="btn-new-chat" id="btnClearChat">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Chat Baru
+      </button>
+    </div>
+
+    <!-- Example requirements -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <rect x="1" y="1" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M4 4h4M4 6h4M4 8h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        Contoh Persyaratan
+      </div>
+
+      <!-- Login -->
+      <button class="example-btn" data-sample="login">
+        <span class="example-icon-wrap" style="--icon-color:#5b8dff">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <rect x="3" y="7" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M6 7V5a2 2 0 014 0v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="8" cy="11" r="1.2" fill="currentColor"/>
+          </svg>
+        </span>
+        <div class="example-text">
+          <span class="example-title">Form Login</span>
+          <span class="example-desc">Autentikasi pengguna</span>
+        </div>
+        <svg class="example-arrow" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <!-- Checkout -->
+      <button class="example-btn" data-sample="checkout">
+        <span class="example-icon-wrap" style="--icon-color:#22aaff">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M1 2h2l2 8h7l1.5-5H5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="7" cy="13.5" r="1" fill="currentColor"/>
+            <circle cx="12" cy="13.5" r="1" fill="currentColor"/>
+          </svg>
+        </span>
+        <div class="example-text">
+          <span class="example-title">API Checkout</span>
+          <span class="example-desc">Transaksi e-commerce</span>
+        </div>
+        <svg class="example-arrow" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <!-- Upload -->
+      <button class="example-btn" data-sample="upload">
+        <span class="example-icon-wrap" style="--icon-color:#2dd4bf">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 10V2M5 5l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <div class="example-text">
+          <span class="example-title">File Upload</span>
+          <span class="example-desc">Manajemen media</span>
+        </div>
+        <svg class="example-arrow" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Session History -->
+    <div class="sidebar-section" id="sessionHistorySection">
+      <div class="sidebar-label">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M6 3.5V6l1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        Sesi Tersimpan
+      </div>
+      <div id="sessionList" class="session-list">
+        <span class="session-empty">Belum ada sesi tersimpan</span>
+      </div>
+      <button class="btn-save-session" id="btnSaveSession">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M2 2h7l1 1v8H2V2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+          <path d="M4 2v3h4V2" stroke="currentColor" stroke-width="1.3"/>
+          <path d="M3 7h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        Simpan Sesi Ini
+      </button>
+    </div>
+
+    <!-- API Mode -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M6 3v3l2 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        Mode API
+      </div>
+      <div class="mode-toggle-card">
+        <div class="mode-toggle-info">
+          <span class="mode-toggle-name" id="modeLabel">Mock Mode</span>
+          <span class="mode-toggle-desc" id="modeNote">Demo tanpa API key</span>
+        </div>
+        <label class="toggle-switch" for="toggleMock" aria-label="Toggle Mock Mode">
+          <input type="checkbox" id="toggleMock" checked />
+          <span class="toggle-track" aria-hidden="true">
+            <span class="toggle-thumb"></span>
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <!-- System Prompt -->
+    <div class="sidebar-section sidebar-section-grow">
+      <div class="sidebar-label">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M2 2h8v8H2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          <path d="M4 5l1.5 1.5L4 8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M7 8h1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        System Prompt
+        <button class="icon-btn small" id="btnToggleSettings" aria-expanded="false" aria-controls="settingsPanel">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M1 3h10M1 6h10M1 9h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div id="settingsPanel" class="settings-panel" hidden>
+        <textarea id="systemPromptEditor" rows="10" aria-label="Editor system prompt" spellcheck="false" placeholder="System prompt…"></textarea>
+        <div class="settings-actions">
+          <button class="btn-ghost-sm" id="btnResetPrompt">Reset</button>
+          <button class="btn-accent-sm" id="btnSavePrompt">Simpan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="sidebar-footer">
+      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true" style="opacity:.4">
+        <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M7 4v3l2 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      <span class="sidebar-footer-brand">Powered by IBM watsonx</span>
+    </div>
+
+  </aside>
+
+
+  <!-- ======================================================================
+       MAIN CONTENT
+       ====================================================================== -->
+  <main id="main">
+
+    <!-- Top bar -->
+    <header id="topbar">
+      <button id="btnOpenSidebar" class="icon-btn" aria-label="Buka sidebar" hidden>
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </button>
+
+      <div class="topbar-brand">
+        <svg class="topbar-logo-mark" width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="M7 2h6M8 2v6L4 15a1 1 0 00.9 1.5h10.2A1 1 0 0016 15l-4-7V2" stroke="url(#tbGrad)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="8" cy="13" r=".9" fill="url(#tbGrad)" opacity=".9"/>
+          <defs>
+            <linearGradient id="tbGrad" x1="4" y1="2" x2="16" y2="18" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#5b8dff"/>
+              <stop offset="100%" stop-color="#1558d6"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="topbar-name">TestForge</span>
+        <span class="topbar-divider" aria-hidden="true"></span>
+        <span class="topbar-desc">AI Test Case Generator</span>
+      </div>
+
+      <div class="topbar-actions">
+        <!-- Theme toggle -->
+        <button class="btn-icon-sm" id="btnTheme" title="Ganti tema" aria-label="Ganti tema">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true" id="themeIcon">
+            <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.3 3.3l1.4 1.4M11.3 11.3l1.4 1.4M3.3 12.7l1.4-1.4M11.3 4.7l1.4-1.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <!-- Lang toggle -->
+        <button class="btn-icon-sm" id="btnLang" title="Ganti bahasa" aria-label="Ganti bahasa">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M8 1.5C8 1.5 5 5 5 8s3 6.5 3 6.5M8 1.5C8 1.5 11 5 11 8s-3 6.5-3 6.5M1.5 8h13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M2.5 5.5h11M2.5 10.5h11" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity=".6"/>
+          </svg>
+          <span id="langLabel">ID</span>
+        </button>
+
+        <div id="apiStatus" class="status-indicator mock" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="statusText">Mock</span>
+        </div>
+
+        <button class="btn-icon-sm" id="btnExportCSV" title="Ekspor CSV" aria-label="Ekspor CSV" hidden>
+          <svg width="14" height="14" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+            <path d="M7.5 1v9M4 7l3.5 3.5L11 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 12h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          CSV
+        </button>
+        <button class="btn-icon-sm" id="btnCopyMarkdown" title="Salin Markdown" aria-label="Salin Markdown" hidden>
+          <svg width="14" height="14" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+            <rect x="1" y="4" width="9" height="10" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M5 1h8a1 1 0 011 1v9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Markdown
+        </button>
+        <button class="btn-icon-sm" id="btnShareLink" title="Bagikan link" aria-label="Bagikan link" hidden>
+          <svg width="14" height="14" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+            <circle cx="12" cy="3" r="1.8" stroke="currentColor" stroke-width="1.3"/>
+            <circle cx="3" cy="7.5" r="1.8" stroke="currentColor" stroke-width="1.3"/>
+            <circle cx="12" cy="12" r="1.8" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M4.7 8.5l5.6 2.7M4.7 6.5l5.6-2.7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <!-- Filter dropdown trigger -->
+        <button class="btn-icon-sm" id="btnFilter" title="Filter test case" aria-label="Filter test case" hidden>
+          <svg width="14" height="14" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+            <path d="M1.5 3h12l-5 6v5l-2-1V9L1.5 3z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          </svg>
+          Filter
+        </button>
+      </div>
+    </header>
+
+    <!-- Filter bar (shown when filter active) -->
+    <div id="filterBar" class="filter-bar" hidden>
+      <span class="filter-bar-label">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M1 2h10l-4 5v3l-2-1V7L1 2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+        </svg>
+        Filter:
+      </span>
+      <div class="filter-chips" id="filterChips"></div>
+      <button class="filter-clear" id="btnFilterClear">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+          <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        Reset
+      </button>
+    </div>
+
+    <!-- Chat history -->
+    <section id="chatHistory" aria-label="Riwayat percakapan" aria-live="polite" aria-atomic="false">
+    </section>
+
+    <!-- Input area -->
+    <footer id="inputArea">
+      <div class="input-container">
+        <div class="input-wrap">
+          <textarea
+            id="userInput"
+            rows="1"
+            placeholder="Tempel user story, API spec, atau PRD di sini…"
+            aria-label="Input persyaratan"
+            spellcheck="false"
+          ></textarea>
+          <div class="input-actions">
+            <span class="input-hint-inline">Ctrl+Enter</span>
+            <button id="btnSend" class="btn-send" aria-label="Kirim">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M14 8H2M9 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="input-footer-row">
+          <span class="input-footer-left">
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true" style="opacity:.45">
+              <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M6 4v3M6 8.5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <span id="inputHintText">Mendukung: User Story · API Spec · PRD</span>
+          </span>
+          <span class="input-counter" id="inputCounter">0</span>
+        </div>
+      </div>
+    </footer>
+
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+  <!-- Mobile sidebar overlay -->
+  <div id="sidebarOverlay" class="sidebar-overlay" aria-hidden="true"></div>
+
+  <!-- ======================================================================
+       WELCOME POPUP MODAL
+       ====================================================================== -->
+  <div id="welcomeModal" class="wm-backdrop" role="dialog" aria-modal="true" aria-labelledby="wmTitle" hidden>
+    <div class="wm-panel">
+
+      <!-- Header -->
+      <div class="wm-header">
+        <div class="wm-logo" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+            <path d="M7 2h6M8 2v6L4 15a1 1 0 00.9 1.5h10.2A1 1 0 0016 15l-4-7V2"
+              stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="8" cy="13" r="1" fill="#fff" opacity=".8"/>
+            <circle cx="11.5" cy="15" r=".7" fill="#fff" opacity=".6"/>
+          </svg>
+        </div>
+        <div class="wm-header-text">
+          <span class="wm-name">TestForge</span>
+          <span class="wm-tag">AI Test Case Generator · IBM AI Builders</span>
+        </div>
+        <button id="wmClose" class="wm-close" aria-label="Tutup">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M11 3L3 11M3 3l8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Hero description -->
+      <p class="wm-desc">
+        Ubah persyaratan perangkat lunak menjadi <strong>test suite terstruktur</strong>
+        secara otomatis — mencakup 6 tipe uji, ekspor CSV/Markdown, dan analisis cakupan.
+      </p>
+
+      <!-- Feature grid -->
+      <div class="wm-features">
+        <div class="wm-feat">
+          <span class="wm-feat-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2" opacity=".3"/>
+            </svg>
+          </span>
+          <span class="wm-feat-label">6 Tipe Test Case</span>
+          <span class="wm-feat-desc">Positive, Negative, Boundary, Edge, Security, Non-Functional</span>
+        </div>
+        <div class="wm-feat">
+          <span class="wm-feat-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="wm-feat-label">Analisis Otomatis</span>
+          <span class="wm-feat-desc">Ekstrak fitur, aktor, dan aturan bisnis dari input teks</span>
+        </div>
+        <div class="wm-feat">
+          <span class="wm-feat-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2v9M5 8l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="wm-feat-label">Ekspor Fleksibel</span>
+          <span class="wm-feat-desc">Download CSV (Excel-ready) atau salin sebagai Markdown</span>
+        </div>
+        <div class="wm-feat">
+          <span class="wm-feat-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="4" cy="8" r="2.2" stroke="currentColor" stroke-width="1.4"/>
+              <circle cx="12" cy="4" r="2.2" stroke="currentColor" stroke-width="1.4"/>
+              <circle cx="12" cy="12" r="2.2" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M6 7l4-2.5M6 9l4 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="wm-feat-label">Bagikan Hasil</span>
+          <span class="wm-feat-desc">Link unik untuk berbagi test suite tanpa server</span>
+        </div>
+        <div class="wm-feat">
+          <span class="wm-feat-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M5 7h6M5 9.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="wm-feat-label">Simpan Sesi</span>
+          <span class="wm-feat-desc">Riwayat percakapan tersimpan lokal, bisa dibuka kembali</span>
+        </div>
+        <div class="wm-feat">
+          <span class="wm-feat-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="wm-feat-label">Multi-Tema</span>
+          <span class="wm-feat-desc">Dark, Light, High-Contrast — toggle di topbar</span>
+        </div>
+      </div>
+
+      <!-- How-to steps -->
+      <div class="wm-steps">
+        <div class="wm-step">
+          <span class="wm-step-num">1</span>
+          <span class="wm-step-text">Pilih contoh atau tempel persyaratan sendiri di input bawah</span>
+        </div>
+        <div class="wm-step">
+          <span class="wm-step-num">2</span>
+          <span class="wm-step-text">Tekan <kbd>Ctrl</kbd>+<kbd>Enter</kbd> — agen AI akan membuat test suite</span>
+        </div>
+        <div class="wm-step">
+          <span class="wm-step-num">3</span>
+          <span class="wm-step-text">Review, edit inline, lalu ekspor CSV atau salin sebagai Markdown</span>
+        </div>
+      </div>
+
+      <!-- Footer actions -->
+      <div class="wm-footer">
+        <label class="wm-no-show">
+          <input type="checkbox" id="wmDontShow" />
+          <span class="wm-checkbox-track" aria-hidden="true"></span>
+          Jangan tampilkan lagi
+        </label>
+        <button class="wm-btn-start" id="wmStart">
+          Mulai Sekarang
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+            <path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="app.js?v=2"></script>
+</body>
+</html>
