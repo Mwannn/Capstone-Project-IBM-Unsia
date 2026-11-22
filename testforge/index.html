@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>VulnTriage — AI Vulnerability Triage Agent</title>
-  <link rel="stylesheet" href="style.css?v=8" />
+  <link rel="stylesheet" href="style.css?v=10" />
 </head>
 <body>
 
@@ -156,6 +156,28 @@
           <input type="checkbox" id="toggleMock" />
           <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
         </label>
+      </div>
+
+      <!-- Secure API Key input (Local only, never stored in source code) -->
+      <div id="apiKeySection" class="api-key-box" hidden style="display:none">
+        <div class="api-key-header">
+          <span class="api-key-title">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 7V4.5a3 3 0 016 0V7" stroke="currentColor" stroke-width="1.4"/></svg>
+            API Key
+          </span>
+          <span id="apiKeyStatus" class="api-key-badge none">Belum diset</span>
+        </div>
+        <div class="api-key-input-row">
+          <input type="password" id="inputApiKey" placeholder="sk-or-v1-..." autocomplete="off" spellcheck="false" />
+          <button type="button" class="btn-icon-tiny" id="btnToggleKeyMask" title="Tampilkan / Sembunyikan Key" aria-label="Lihat API Key">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.4"/></svg>
+          </button>
+        </div>
+        <div class="api-key-actions">
+          <button type="button" class="btn-accent-tiny" id="btnSaveApiKey">Simpan</button>
+          <button type="button" class="btn-ghost-tiny" id="btnRemoveApiKey">Hapus</button>
+        </div>
+        <p class="api-key-note">🔒 Disimpan secara lokal di browser Anda (LocalStorage), tidak pernah di-commit ke Git atau dipublikasikan.</p>
       </div>
     </div>
 
@@ -394,6 +416,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>

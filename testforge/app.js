@@ -711,11 +711,81 @@ let currentLang  = 'id';
 let currentTheme = 'dark';
 
 const LLM_CONFIG = {
-  // --- OpenRouter (Active) ---
+  // --- OpenRouter ---
   endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-  apiKey:   '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',
+  apiKey:   '', // Keamanan: Tidak ada API key yang disimpan di source code publik
   model:    'openrouter/auto', // Otomatis memilih model gratis terbaik yang sedang online
 };
+
+let backendProxy = { active: false, hasEnvKey: false };
+
+async function checkBackendProxy() {
+  try {
+    const res = await fetch('/api/status', { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.proxy) {
+        backendProxy.active = true;
+        backendProxy.hasEnvKey = !!data.hasEnvKey;
+        if (data.model) {
+          LLM_CONFIG.model = data.model;
+          const modeNote = document.getElementById('modeNote');
+          if (modeNote && !isMockMode) modeNote.textContent = data.model;
+        }
+        console.log('[VulnTriage] Server proxy terhubung. status .env:', data.hasEnvKey, 'model:', data.model || LLM_CONFIG.model);
+        updateApiKeyUI();
+      }
+    }
+  } catch (_) {
+    // Berjalan sebagai static server biasa
+  }
+}
+
+function getApiKey() {
+  return (localStorage.getItem('vt_api_key') || LLM_CONFIG.apiKey || '').trim();
+}
+
+function setApiKey(key) {
+  const clean = (key || '').trim();
+  if (clean) {
+    localStorage.setItem('vt_api_key', clean);
+  } else {
+    localStorage.removeItem('vt_api_key');
+  }
+  updateApiKeyUI();
+}
+
+function updateApiKeyUI() {
+  const inputEl  = document.getElementById('inputApiKey');
+  const statusEl = document.getElementById('apiKeyStatus');
+  const noteEl   = document.querySelector('.api-key-note');
+  const key      = getApiKey();
+
+  if (statusEl) {
+    if (backendProxy.hasEnvKey) {
+      statusEl.textContent = 'Aktif (.env)';
+      statusEl.className   = 'api-key-badge saved';
+    } else if (key) {
+      statusEl.textContent = 'Tersimpan';
+      statusEl.className   = 'api-key-badge saved';
+    } else {
+      statusEl.textContent = 'Belum diset';
+      statusEl.className   = 'api-key-badge none';
+    }
+  }
+
+  if (noteEl && backendProxy.hasEnvKey) {
+    noteEl.textContent = '🔑 Kunci API aktif otomatis melalui file .env server lokal.';
+  }
+
+  if (inputEl) {
+    if (!inputEl.value && key) {
+      inputEl.placeholder = key.slice(0, 8) + '...' + key.slice(-4);
+    } else if (backendProxy.hasEnvKey && !inputEl.value) {
+      inputEl.placeholder = 'Menggunakan OPENROUTER_API_KEY dari .env';
+    }
+  }
+}
 
 let cachedLiveFreeModels = [];
 
@@ -747,6 +817,22 @@ async function getLiveFreeModels() {
 }
 
 async function callLLMApi(userMessage) {
+  const currentKey = getApiKey();
+  if (!currentKey && !backendProxy.hasEnvKey) {
+    const apiKeySection = document.getElementById('apiKeySection');
+    if (apiKeySection) {
+      apiKeySection.hidden = false;
+      apiKeySection.style.display = 'flex';
+    }
+    const inputKey = document.getElementById('inputApiKey');
+    if (inputKey) inputKey.focus();
+    throw new Error('API Key belum diatur. Masukkan OpenRouter API Key pada sidebar atau setel OPENROUTER_API_KEY di file .env.');
+  }
+
+  // Jika proxy Python backend aktif, kirim ke endpoint lokal /api/chat
+  const useProxy = backendProxy.active;
+  const endpoint = useProxy ? '/api/chat' : LLM_CONFIG.endpoint;
+
   // Ambil daftar model gratis yang sedang aktif secara live di OpenRouter
   const liveModels = await getLiveFreeModels();
   const modelsToTry = Array.from(new Set([LLM_CONFIG.model, ...liveModels, 'openrouter/auto']));
@@ -755,24 +841,31 @@ async function callLLMApi(userMessage) {
   for (const currentModel of modelsToTry) {
     try {
       console.log(`[VulnTriage] Memanggil model: ${currentModel}...`);
-      const resp = await fetch(LLM_CONFIG.endpoint, {
+      
+      const payload = {
+        model: currentModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...chatHistory.slice(-8).map(m => ({ role: m.role === 'agent' ? 'assistant' : 'user', content: m.text })),
+          { role: 'user', content: userMessage },
+        ],
+        temperature: 0.2,
+        max_tokens: 2500,
+      };
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (useProxy) {
+        if (currentKey) payload.apiKey = currentKey;
+      } else {
+        headers['Authorization'] = `Bearer ${currentKey}`;
+        headers['HTTP-Referer'] = window.location.origin || 'http://localhost:8080';
+        headers['X-Title'] = 'VulnTriage';
+      }
+
+      const resp = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${LLM_CONFIG.apiKey}`,
-          'HTTP-Referer': window.location.origin || 'http://localhost:8080',
-          'X-Title': 'VulnTriage',
-        },
-        body: JSON.stringify({
-          model: currentModel,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...chatHistory.slice(-8).map(m => ({ role: m.role === 'agent' ? 'assistant' : 'user', content: m.text })),
-            { role: 'user', content: userMessage },
-          ],
-          temperature: 0.2,
-          max_tokens: 2500,
-        }),
+        headers: headers,
+        body: JSON.stringify(payload),
       });
 
       const data = await resp.json().catch(() => ({}));
@@ -1716,29 +1809,89 @@ function initSettings() {
 }
 
 /* =============================================================================
-   SECTION 18: MODE TOGGLE
+   SECTION 18: MODE TOGGLE & API KEY SETTINGS
    ============================================================================= */
+function initApiKeyUI() {
+  const inputEl = document.getElementById('inputApiKey');
+  const btnMask = document.getElementById('btnToggleKeyMask');
+  const btnSave = document.getElementById('btnSaveApiKey');
+  const btnDel  = document.getElementById('btnRemoveApiKey');
+
+  if (inputEl) {
+    const saved = localStorage.getItem('vt_api_key') || '';
+    if (saved) {
+      inputEl.value = saved;
+    }
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        setApiKey(inputEl.value);
+        showToast('API Key disimpan di browser!');
+      }
+    });
+  }
+
+  if (btnMask && inputEl) {
+    btnMask.addEventListener('click', () => {
+      inputEl.type = inputEl.type === 'password' ? 'text' : 'password';
+    });
+  }
+
+  if (btnSave && inputEl) {
+    btnSave.addEventListener('click', () => {
+      const val = inputEl.value.trim();
+      setApiKey(val);
+      showToast(val ? 'API Key berhasil disimpan di localStorage!' : 'API Key kosong.');
+    });
+  }
+
+  if (btnDel && inputEl) {
+    btnDel.addEventListener('click', () => {
+      setApiKey('');
+      inputEl.value = '';
+      inputEl.placeholder = 'sk-or-v1-...';
+      showToast('API Key dihapus dari penyimpanan browser.');
+    });
+  }
+
+  updateApiKeyUI();
+}
+
 function initModeToggle() {
-  const toggle    = document.getElementById('toggleMock');
-  const modeLabel = document.getElementById('modeLabel');
-  const modeNote  = document.getElementById('modeNote');
-  const statusEl  = document.getElementById('apiStatus');
-  const statusTxt = document.getElementById('statusText');
+  const toggle        = document.getElementById('toggleMock');
+  const modeLabel     = document.getElementById('modeLabel');
+  const modeNote      = document.getElementById('modeNote');
+  const statusEl      = document.getElementById('apiStatus');
+  const statusTxt     = document.getElementById('statusText');
+  const apiKeySection = document.getElementById('apiKeySection');
 
   function update() {
-    isMockMode = toggle.checked;
+    const isLive = toggle.checked;
+    isMockMode = !isLive;
+
     if (isMockMode) {
       modeLabel.textContent = 'Mock Mode';
       modeNote.textContent  = 'Demo tanpa API key';
       statusEl.className    = 'status-indicator mock';
       statusTxt.textContent = 'Mock';
+      if (apiKeySection) {
+        apiKeySection.hidden = true;
+        apiKeySection.style.display = 'none';
+      }
     } else {
       modeLabel.textContent = 'API Mode (OpenRouter)';
       modeNote.textContent  = LLM_CONFIG.model;
       statusEl.className    = 'status-indicator live';
       statusTxt.textContent = 'Live';
+      if (apiKeySection) {
+        apiKeySection.hidden = false;
+        apiKeySection.style.display = 'flex';
+      }
+      updateApiKeyUI();
     }
   }
+
+  initApiKeyUI();
   toggle.addEventListener('change', update);
   update();
 }
@@ -2111,6 +2264,7 @@ function initWelcomeModal() {
   initDashboard();
   initScanDiff();
   initWelcomeModal();
+  checkBackendProxy();
 
   document.getElementById('userInput').focus();
 })();

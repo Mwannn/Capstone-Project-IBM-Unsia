@@ -372,6 +372,107 @@ body {
 .toggle-switch input:checked ~ .toggle-track { background: var(--accent); }
 .toggle-switch input:checked ~ .toggle-track .toggle-thumb { transform: translateX(16px); }
 
+/* Secure API Key Box */
+.api-key-box {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  background: rgba(14, 17, 23, 0.7);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: .7rem .8rem;
+  margin-top: .4rem;
+}
+.api-key-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.api-key-title {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .74rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.api-key-badge {
+  font-size: .66rem;
+  font-weight: 700;
+  padding: .15em .5em;
+  border-radius: 4px;
+}
+.api-key-badge.saved {
+  background: rgba(34,197,94,.15);
+  color: #4ade80;
+  border: 1px solid rgba(34,197,94,.3);
+}
+.api-key-badge.none {
+  background: rgba(148,163,184,.12);
+  color: #94a3b8;
+  border: 1px solid rgba(148,163,184,.25);
+}
+.api-key-input-row {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: .2rem .4rem;
+}
+.api-key-input-row input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: .76rem;
+  padding: .25em 0;
+}
+.btn-icon-tiny {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: .2rem;
+  border-radius: 4px;
+}
+.btn-icon-tiny:hover { color: var(--text-primary); }
+.api-key-actions {
+  display: flex;
+  gap: .4rem;
+}
+.btn-accent-tiny {
+  background: var(--grad-brand);
+  border: none;
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 600;
+  padding: .3em .75em;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.btn-ghost-tiny {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: .72rem;
+  padding: .3em .6em;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.btn-ghost-tiny:hover { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.3); color: #fca5a5; }
+.api-key-note {
+  font-size: .66rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 /* Settings panel */
 .settings-panel { display: flex; flex-direction: column; gap: .5rem; }
 #systemPromptEditor {
