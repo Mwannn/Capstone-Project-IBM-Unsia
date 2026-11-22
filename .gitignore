@@ -15,6 +15,9 @@ venv/
 .venv/
 env/
 
+# Data ekstensi snapgent
+.snapgent/
+
 # OS metadata
 .DS_Store
 Thumbs.db

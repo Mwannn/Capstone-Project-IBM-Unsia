@@ -13,6 +13,13 @@ import urllib.error
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
 
+# Keamanan: hanya bind ke localhost agar proxy (dan API key di .env) tidak terekspos ke jaringan
+HOST = '127.0.0.1'
+# Batas ukuran body request /api/chat (byte)
+MAX_BODY_BYTES = 256 * 1024
+# Hanya ekstensi statis ini yang boleh disajikan lewat HTTP
+ALLOWED_STATIC_EXT = {'.html', '.css', '.js', '.ico', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.woff2'}
+
 # Load .env file if present
 def load_env():
     base_dir = os.path.dirname(__file__)
@@ -44,6 +51,27 @@ class VulnTriageHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(403, "Access denied: Secret configuration files cannot be accessed over HTTP.")
             return
 
+        # Allowlist: hanya index dan aset statis; blokir server.py, *.md, dll.
+        if not clean_path.startswith('/api/') and not clean_path.endswith('/'):
+            ext = os.path.splitext(clean_path)[1].lower()
+            if ext not in ALLOWED_STATIC_EXT:
+                self.send_error(403, "Access denied: file type is not served.")
+                return
+
+        if clean_path == '/api/system-prompt':
+            prompt_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'system_prompt.md')
+            try:
+                with open(prompt_file, 'r', encoding='utf-8') as f:
+                    prompt_data = f.read()
+            except OSError:
+                self.send_error(404, "system_prompt.md not found")
+                return
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(prompt_data.encode('utf-8'))
+            return
+
         if clean_path == '/api/status':
             has_env_key = bool(os.environ.get('OPENROUTER_API_KEY'))
             model_env = os.environ.get('OPENROUTER_MODEL', '')
@@ -67,7 +95,14 @@ class VulnTriageHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_proxy_chat(self):
         api_key = os.environ.get('OPENROUTER_API_KEY', '')
-        content_length = int(self.headers.get('Content-Length', 0))
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+        except ValueError:
+            self.send_error(400, "Invalid Content-Length")
+            return
+        if content_length <= 0 or content_length > MAX_BODY_BYTES:
+            self.send_error(413, "Request body too large or empty")
+            return
         body = self.rfile.read(content_length)
 
         try:
@@ -122,11 +157,11 @@ class VulnTriageHandler(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     os.chdir(os.path.dirname(__file__))
-    server_address = ('', PORT)
+    server_address = (HOST, PORT)
     httpd = http.server.HTTPServer(server_address, VulnTriageHandler)
     key_status = "TERPASANG (dari .env)" if os.environ.get('OPENROUTER_API_KEY') else "BELUM ADA (dapat diinput via UI)"
     print("=" * 60)
-    print(f"  VulnTriage Server running on http://localhost:{PORT}")
+    print(f"  VulnTriage Server running on http://{HOST}:{PORT} (localhost only)")
     print(f"  OpenRouter API Key Status: {key_status}")
     print("=" * 60)
     try:
