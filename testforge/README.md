@@ -1,156 +1,190 @@
-# VulnTriage — Vulnerability Report Triage Agent
-### IBM Bob Capstone Project — IT Track (AI Agent)
+# VulnTriage
 
-> **Posisi Produk (*Positioning*):**  
-> **VulnTriage** adalah lapisan intelijen AI defensif untuk triage, deduplikasi, dan pelaporan keamanan siber. Agen ini mengubah temuan mentah dari **SEMUA jenis scanner** (DAST, SAST) maupun laporan bug hunter menjadi rencana aksi terprioritas, siap kepatuhan regulasi Indonesia (UU PDP & SPBE), dan ramah pengembang.  
-> **VulnTriage TIDAK melakukan scanning terhadap target dan TIDAK mengeksploitasi sistem apa pun.**
+Agen triage laporan kerentanan keamanan. Menerima laporan bug hunter atau ekspor scanner (JSON/CSV), lalu menghasilkan klasifikasi, skor CVSS v3.1 yang diverifikasi ulang, pengelompokan duplikat, antrean prioritas, pemetaan regulasi Indonesia, dan draf tiket untuk developer.
 
----
+Proyek capstone IBM Bob, IT Track (AI Agent).
 
-## 1. Latar Belakang & Masalah
-
-Tim keamanan informasi (*security operations*), program bug bounty, serta tim IT pemerintah dan UMKM di Indonesia sering kali dibanjiri laporan kerentanan yang:
-1. **Tidak Lengkap & Tidak Konsisten**: Pelapor sering hanya mengirim pesan satu baris tanpa endpoint, langkah reproduksi, atau bukti.
-2. **Kelebihan Beban Informasi (*Alert Fatigue*)**: Scanner otomatis menghasilkan ratusan temuan duplikat atau *false positive* (misal hanya ketiadaan HTTP security header).
-3. **Prioritisasi Lambat**: Temuan kritis (SQLi pada data NIK) sering terkubur di bawah tumpukan temuan berisiko rendah.
-4. **Kesenjangan Bahasa & Regulasi**: Laporan teknis berbahasa Inggris membingungkan pimpinan bisnis lokal yang membutuhkan justifikasi kepatuhan hukum (seperti UU Perlindungan Data Pribadi No. 27/2022).
-
-**VulnTriage** memecahkan masalah ini dengan menyediakan agen triage berbasis prompt berjenjang (*Layered Prompt Architecture*) yang sepenuhnya defensif, objektif, dan otomatis.
+VulnTriage **tidak memindai target dan tidak mengeksploitasi sistem apa pun**. Ia hanya menganalisis teks yang Anda masukkan.
 
 ---
 
-## 2. Arsitektur Solusi & Diagram Alir
+## Masalah yang diselesaikan
 
-```
-[ Raw Vulnerability Input ]
-  ├── Laporan Teks Bug Hunter (Bounty Report)
-  ├── Ekspor Scanner Generic (JSON / CSV / DAST / SAST)
-  └── Tiket Keamanan Mentah
-                │
-                ▼
-┌─────────────────────────────────────────────────────────────┐
-│                 VULNTRIAGE AI AGENT CORE                    │
-│                                                             │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ Layer 1: Role, Context & Defensive-Only Guardrails      │ │
-│ └─────────────────────────────────────────────────────────┘ │
-│                               │                             │
-│                               ▼                             │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ Layer 2: 10-Step Sequential Reasoning Engine            │ │
-│ │  (A) Completeness Check (Missing >= 2? Stop & Clarify)  │ │
-│ │  (B) OWASP 2021 & CWE Classification                    │ │
-│ │  (C) Conservative CVSS v3.1 Scoring with Metric Rationale│ │
-│ │  (D) Plain-Language Business Impact (Non-Technical)     │ │
-│ │  (E) Sanitized Steps to Reproduce (<PAYLOAD> Placeholders)│
-│ │  (F) Structured Remediation (Short/Long + Secure Code)  │ │
-│ │  (G) False-Positive Scorer & Noise Detector (0-100)     │ │
-│ │  (H) Deduplication & Root-Cause Clustering              │ │
-│ │  (I) 4-Factor Risk Prioritization (Fix First/Soon/Backlog)│
-│ │  (J) Compliance Mapping (UU PDP, ISO 27001, OWASP ASVS) │ │
-│ │  (K) Scan-Diff Engine (New vs Fixed vs Unchanged)       │ │
-│ │  (L) Self-Review & Explicit [ASUMSI] Audit Gate         │ │
-│ └─────────────────────────────────────────────────────────┘ │
-│                               │                             │
-│                               ▼                             │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ Layer 3: Output Enveloping, Formatting & Honesty Rules  │ │
-│ └─────────────────────────────────────────────────────────┘ │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-            ┌──────────────────┴──────────────────┐
-            ▼                                     ▼
-┌───────────────────────────────┐   ┌───────────────────────────────┐
-│     OPERATIONAL DELIVERABLES  │   │     EXECUTIVE & COMPLIANCE    │
-│ ├── Triage Status Card        │   │ ├── Ringkasan Eksekutif (Id)  │
-│ ├── CVSS Vector & Rationale   │   │ ├── Pemetaan UU PDP & ISO     │
-│ ├── Secure Code Pattern       │   │ ├── Dashboard Matriks Risiko  │
-│ ├── 1-Click Jira/GitHub Export│   │ ├── Scan-Diff Release Report  │
-│ └── Missing Info Clarification│   │ └── Printable HTML / Markdown │
-└───────────────────────────────┘   └───────────────────────────────┘
+Tim keamanan, program bug bounty, dan tim IT pemerintah atau UMKM sering menerima laporan yang:
+
+1. **Tidak lengkap.** Pelapor mengirim satu baris tanpa endpoint, langkah reproduksi, atau bukti.
+2. **Terlalu banyak dan berulang.** Satu scanner bisa menghasilkan puluhan temuan dengan akar masalah yang sama, misalnya header keamanan yang hilang di banyak URL.
+3. **Sulit diprioritaskan.** Temuan kritis terkubur di antara temuan berisiko rendah.
+4. **Sulit dijelaskan ke manajemen.** Laporan teknis berbahasa Inggris perlu diterjemahkan ke dampak bisnis dan konteks hukum, misalnya UU PDP No. 27/2022.
+
+---
+
+## Fitur
+
+**Triage**
+- **Pemeriksaan kelengkapan.** Jika 2 atau lebih elemen krusial hilang, agen tidak memberi skor dan hanya mengajukan maksimal 3 pertanyaan klarifikasi.
+- **Klasifikasi** ke OWASP Top 10 2021 dan CWE.
+- **Skor CVSS v3.1** dengan rasional per metrik. Skor dari LLM dihitung ulang di browser oleh `cvss.js` dari vektornya, sehingga angka tidak bergantung pada aritmetika model.
+- **Skor false positive (0 sampai 100)** dengan alasan, termasuk untuk temuan yang hanya teoretis.
+- **Langkah reproduksi tersanitasi.** Payload diganti placeholder seperti `<PAYLOAD>`.
+- **Remediasi** jangka pendek dan panjang, plus contoh kode aman.
+
+**Skala besar**
+- **Dedup deterministik di JavaScript.** Ekspor scanner dikelompokkan berdasarkan nama + CWE + parameter sebelum dikirim ke LLM. LLM hanya menerima ringkasan per grup, sehingga ekspor besar tidak membengkakkan prompt.
+- **Antrean prioritas:** Perbaiki Pertama, Perbaiki Segera, Backlog.
+- **Scan Diff.** Membandingkan dua hasil scan menjadi Baru, Diperbaiki, dan Tidak Berubah. Kunci perbandingannya nama + URL + parameter, jadi temuan yang sama di URL berbeda tidak tercampur.
+
+**Pelaporan**
+- Pemetaan **UU PDP**, **ISO 27001:2022**, dan **OWASP ASVS** (bersifat indikatif).
+- Ekspor: salin Markdown, unduh JSON, laporan HTML, dan format tiket siap tempel ke Jira atau GitHub Issues.
+- Dashboard ringkasan severity.
+
+**Mode kerja**
+- **Live:** memanggil model lewat OpenRouter.
+- **Mock:** respons contoh untuk demo tanpa API key.
+- Editor system prompt di antarmuka untuk membandingkan variasi prompt.
+
+---
+
+## Cara kerja
+
+```mermaid
+flowchart TD
+    A[Laporan teks atau ekspor scanner JSON/CSV] --> B{Ekspor scanner?}
+    B -- ya --> C[Parse JSON/CSV dan dedup di JS<br/>nama + CWE + parameter]
+    B -- tidak --> D[Teks laporan apa adanya]
+    C --> E[Ringkasan per grup dalam scanner_data]
+    D --> F[Proxy lokal server.py]
+    E --> F
+    F --> G[OpenRouter, output JSON]
+    G --> H[structured.js memvalidasi JSON]
+    H --> I[cvss.js menghitung ulang skor dari vektor]
+    I --> J[Kartu hasil, dashboard, ekspor]
 ```
 
----
-
-## 3. Fitur Unggulan (Competitive Features)
-
-1. **Prompt Berjenjang 3-Layer (*Layered Prompt Architecture*)**:
-   - Memastikan pemisahan ketat antara identitas peran, urutan penalaran kognitif, dan pembatasan format luaran.
-2. **Pemeriksaan Kelengkapan Cerdas (*Completeness Gatekeeper*)**:
-   - Jika laporan kehilangan $\ge 2$ elemen esensial, agen menahan penilaian skor dan mengajukan maksimal 3 pertanyaan klarifikasi. Mencegah halusinasi data.
-3. **Defensif Murni & Sanitasi Eksploit**:
-   - Tidak pernah menampilkan payload aktif atau instruksi penyerangan. Semua langkah disanitasi menggunakan placeholder konseptual (`<PAYLOAD>`).
-4. **Penyaring False-Positive & Noise Detector (0–100)**:
-   - Memberikan skor keyakinan false-positive dengan alasan jelas. Isu teoretis seperti ketiadaan header diberi label "Butuh Validasi Manual" dan tidak memicu kepanikan.
-5. **Deduplikasi & Pengelompokan Akar Masalah (*Root Cause Grouping*)**:
-   - Menggabungkan temuan-temuan serupa (misal 10 titik XSS yang berasal dari satu komponen view yang sama) menjadi 1 kelompok perbaikan terpusat.
-6. **Antrean Prioritas Risiko 4-Faktor (*Risk Prioritization Queue*)**:
-   - Menghitung prioritas perbaikan berdasarkan: Skor CVSS + Eksposur Lingkungan (Internet vs Internal) + Sensitivitas Data + Ada/Tidaknya Bukti Nyata. Menghasilkan kategori tindakan: **Fix First**, **Fix Soon**, atau **Backlog**.
-7. **Pemetaan Regulasi Indonesia (*Compliance Mapping*)**:
-   - Memetakan setiap temuan ke **UU Perlindungan Data Pribadi (UU PDP No. 27/2022)**, **ISO 27001:2022 Annex A**, dan **OWASP ASVS v4.0** dengan catatan kehati-hatian (*audit recommendation*).
-8. **Pembanding Pemindaian (*Scan-Diff View*)**:
-   - Membandingkan hasil pemindaian siklus sebelumnya dengan siklus terkini untuk mendeteksi temuan **New**, **Fixed**, dan **Unchanged**.
-9. **Generator Laporan Dwi-Bahasa (*Executive & Technical Report*)**:
-   - Menghasilkan ringkasan dampak bisnis untuk manajemen non-teknis dalam Bahasa Indonesia dan rincian teknis untuk pengembang, dapat diunduh dalam format Markdown atau dicetak langsung ke PDF/HTML.
-10. **Eksportir Tiket Pengembang 1-Klik**:
-    - Format siap salin ke issue tracker **Jira** atau **GitHub Issues** lengkap dengan Acceptance Criteria.
-11. **Dashboard Interaktif**:
-    - Ringkasan statistik keparahan, visualisasi chart canvas, dan pelacak antrean prioritas.
-12. **Mode Uji Tanpa API Key (*Mock Mode*) & Live System Prompt Editor**:
-    - Dilengkapi respons mock instan untuk demonstrasi lancar tanpa ketergantungan internet/kunci API, serta editor prompt sistem untuk pengujian variasi prompt secara langsung.
+Jika model tidak mengembalikan JSON yang valid, antarmuka memakai parser teks lama (`---TAG---`) sebagai cadangan.
 
 ---
 
-## 4. Cara Menjalankan Aplikasi
+## Menjalankan
 
-Aplikasi dibangun menggunakan **Vanilla HTML5, CSS3, dan JavaScript murni** tanpa dependensi eksternal, tanpa framework berat, dan tanpa CDN pihak ketiga.
+Butuh Python 3 dan browser modern. Tidak ada dependensi yang perlu dipasang.
 
-### Langkah Cepat:
-1. Buka folder `testforge/` di file explorer Anda.
-2. Klik dua kali berkas `index.html` untuk membukanya di browser modern apa pun (Chrome, Edge, Firefox, Safari).
-
-### Atau Jalankan Menggunakan HTTP Server Lokal:
 ```bash
-cd c:\project\ibm-project\testforge
-# Menggunakan Python:
-python -m http.server 8080
-
-# Atau menggunakan npx serve:
-npx serve .
+cd testforge
+python server.py
 ```
-Akses di browser: `http://localhost:8080`
+
+Buka `http://127.0.0.1:8080`. Untuk port lain: `python server.py 9000`. Di Windows, jika `python` tidak dikenali, gunakan `py server.py`.
+
+Server hanya bind ke `127.0.0.1`, jadi tidak bisa diakses dari perangkat lain di jaringan.
+
+### Konfigurasi API key
+
+Tanpa API key, aplikasi berjalan di **mock mode**. Untuk mode live, pilih salah satu:
+
+1. Salin `.env.example` menjadi `.env`, lalu isi `OPENROUTER_API_KEY`. Variabel `OPENROUTER_MODEL` bersifat opsional dan menentukan model yang dicoba pertama.
+2. Atau masukkan key lewat sidebar di antarmuka. Key ini dikirim ke proxy lokal dan tidak disimpan di server.
+
+Jangan commit `.env`. Berkas itu sudah di luar pelacakan Git di repositori ini.
+
+### Model
+
+Aplikasi mengambil daftar model gratis OpenRouter yang sedang aktif, lalu mencoba satu per satu sampai ada yang berhasil. Model yang dipakai ditampilkan di antarmuka. Karena model gratis berbeda kemampuannya, mutu hasil bisa bervariasi antar model.
 
 ---
 
-## 5. Struktur Berkas Proyek
+## Mencoba dengan sampel
+
+Folder `samples/` berisi data uji:
+
+| Berkas | Kegunaan |
+|---|---|
+| `01_sqli.md` | Laporan lengkap: SQL Injection pada form login |
+| `02_stored_xss.md` | Laporan lengkap: Stored XSS pada kolom komentar |
+| `03_idor.md` | Laporan lengkap: IDOR pada data profil nasabah |
+| `04_incomplete.md` | Laporan satu baris, untuk menguji pertanyaan klarifikasi |
+| `scanner_export_v1.json` | Ekspor ala OWASP ZAP, 6 temuan menjadi 4 grup |
+| `scanner_export_v2.csv` | Ekspor ala Burp Suite, 9 temuan menjadi 6 grup |
+| `checklist_*.md`, `samples_checklist.md` | Daftar mutu yang diharapkan untuk tiap sampel |
+
+Uji Scan Diff: jalankan satu triage, buka Scan Diff, tempel `scanner_export_v1.json` di kolom lama dan `scanner_export_v2.csv` di kolom baru.
+
+### Format ekspor scanner yang dikenali
+
+- **JSON:** array, atau objek dengan kunci `findings`. Kolom yang dibaca: `id`, `name`, `risk` atau `severity`, `url`, `parameter`, `cwe`, `evidence`.
+- **CSV:** baris pertama harus header. Kolom dipetakan dari nama header: `Issue Type` atau `Name`, `Severity` atau `Risk`, `URL`, `Parameter`, `CWE`, `Evidence`. Field ber-kutip, kutip ganda, dan baris baru di dalam kutip didukung.
+
+---
+
+## Skema output LLM
+
+System prompt (`system_prompt.md`) mewajibkan satu objek JSON. Kunci utamanya:
+
+```json
+{
+  "triage_status": "valid | needs_info | invalid",
+  "summary": "...",
+  "category": { "owasp": "...", "cwe": "..." },
+  "severity": { "label": "...", "cvss_vector": "CVSS:3.1/...", "score": 0.0, "rationale": {} },
+  "business_impact": "...",
+  "reproduction_steps": [],
+  "remediation": { "short_term": [], "long_term": [], "secure_code": {} },
+  "compliance_mapping": [],
+  "false_positive": { "score": 0, "status": "...", "reason": "..." },
+  "dedup_groups": [],
+  "priority_queue": []
+}
+```
+
+`dedup_groups` dan `priority_queue` hanya muncul untuk input dengan banyak temuan. Skema lengkap ada di `system_prompt.md`.
+
+---
+
+## Keamanan
+
+- **Proxy hanya localhost.** `server.py` bind ke `127.0.0.1`.
+- **Batas body 256 KB** pada `/api/chat`.
+- **Allowlist berkas statis.** Hanya `.html`, `.css`, `.js`, dan aset gambar atau font yang disajikan. `server.py`, `*.md`, dan berkas `.env` tidak bisa diunduh lewat HTTP.
+- **Input dianggap tidak tepercaya.** Isi laporan dan ekspor scanner dibungkus `<scanner_data>` dan system prompt menginstruksikan model untuk tidak mengikuti perintah di dalamnya. Ini mengurangi risiko prompt injection, tetapi tidak menghilangkannya.
+- **Output di-escape** sebelum dirender sebagai HTML.
+- **Redaksi data sensitif masih manual.** Hapus token produksi, API key, dan NIK asli dari laporan sebelum mengirimnya, karena isi laporan diteruskan ke penyedia model.
+
+---
+
+## Struktur proyek
 
 ```
 testforge/
-├── index.html              # Antarmuka web chat playground, dashboard, scan diff, dan ekspor
-├── style.css               # Desain UI modern dark theme (WCAG AA compliant, responsive)
-├── app.js                  # Engine logika frontend, parser scanner, risk algorithm, mock responses, API client
-├── system_prompt.md        # Prompt sistem 3-layer lengkap (v3.0)
-├── PROMPT_ITERATIONS.md    # Log eksperimen dan perbandingan kualitas v1 -> v2 -> v3
-├── README.md               # Dokumentasi arsitektur, cara pakai, dan batasan solusi
-└── samples/
-    ├── 01_sqli.md             # Laporan valid: SQL Injection form login
-    ├── 02_stored_xss.md       # Laporan valid: Stored XSS pada kolom komentar
-    ├── 03_idor.md             # Laporan valid: IDOR pada data profil nasabah perbankan
-    ├── 04_incomplete.md       # Laporan 1 baris tidak lengkap (uji coba klarifikasi)
-    ├── checklist_sqli.md      # Expected quality checklist: SQLi
-    ├── checklist_xss.md       # Expected quality checklist: Stored XSS
-    ├── checklist_idor.md      # Expected quality checklist: IDOR
-    ├── checklist_incomplete.md # Expected quality checklist: Incomplete
-    ├── scanner_export_v1.json # Mock ekspor scanner OWASP ZAP (JSON)
-    ├── scanner_export_v2.csv  # Mock ekspor scanner Burp Suite (CSV)
-    └── samples_checklist.md   # Rekap checklist evaluasi mutu untuk semua sampel
+â”œâ”€â”€ index.html            Antarmuka: chat, dashboard, scan diff, ekspor
+â”œâ”€â”€ style.css             Gaya dan layout responsif
+â”œâ”€â”€ app.js                Logika utama: API client, dedup, scan diff, render, ekspor, mock
+â”œâ”€â”€ cvss.js               Kalkulator CVSS v3.1 (deterministik)
+â”œâ”€â”€ structured.js         Parser output JSON dari LLM
+â”œâ”€â”€ server.py             Server statis dan proxy /api/chat ke OpenRouter
+â”œâ”€â”€ system_prompt.md      System prompt 3 lapis (sumber utama)
+â”œâ”€â”€ PROMPT_ITERATIONS.md  Catatan iterasi prompt v1 ke v3
+â”œâ”€â”€ .env.example          Contoh konfigurasi
+â””â”€â”€ samples/              Data uji dan checklist
 ```
+
+Endpoint server: `GET /api/status`, `GET /api/system-prompt`, `POST /api/chat`.
 
 ---
 
-## 6. Batasan Sistem & Ruang Lingkup (*Scope & Limitations*)
+## Batasan
 
-1. **Bukan Alat Pemindai Aktif**: VulnTriage tidak mengirim paket jaringan, tidak melakukan *port scanning*, dan tidak menjalankan *fuzzing* terhadap target. Analisis bergantung sepenuhnya pada keakuratan data yang dimasukkan.
-2. **Ketergantungan terhadap Bukti Masukan**: Jika pelapor memberikan informasi palsu atau fiktif, agen menandai status sebagai "Perlu Validasi Manual" atau "Asumsi", namun tidak dapat memverifikasi keberadaan server secara fisik di dunia nyata.
-3. **Kepatuhan Bersifat Rekomendasi (*Indicative Compliance*)**: Pemetaan pasal UU PDP dan kontrol ISO 27001 merupakan panduan percepatan kerja bagi tim kepatuhan internal, bukan fatwa hukum resmi atau sertifikasi auditor.
-4. **Perlindungan Privasi**: Pengguna diwajibkan menyensor (*redact*) token rahasia produksi, kunci API, atau NIK asli sebelum memasukkan laporan ke dalam sistem publik.
+1. **Bukan alat pemindai.** Tidak ada paket jaringan, port scan, atau fuzzing ke target. Hasil bergantung pada kebenaran input.
+2. **Tidak bisa memverifikasi klaim pelapor.** Jika laporan fiktif, agen hanya bisa menandainya sebagai butuh validasi manual.
+3. **Pemetaan regulasi bersifat indikatif.** Pasal UU PDP dan kontrol ISO 27001 membantu tim kepatuhan bekerja lebih cepat. Ini bukan nasihat hukum atau sertifikasi.
+4. **Mock mode tidak melewati dedup.** Respons mock berasal dari data contoh tetap.
+5. **Dashboard masih menghitung severity dengan regex** dari teks hasil, belum dari data terstruktur, sehingga angkanya bisa meleset pada ekspor besar.
+6. **Belum ada tes otomatis.** Pengujian saat ini manual terhadap sampel di `samples/`.
+7. **Mutu bergantung model.** Model gratis bisa menolak `response_format` atau tidak patuh pada skema. Parser cadangan menangani sebagian kasus, bukan semuanya.
+
+## Rencana berikutnya
+
+- Dashboard dihitung dari data terstruktur.
+- Skrip evaluasi yang menjalankan sampel dan mencocokkan hasil dengan checklist.
+- Redaksi otomatis NIK, token, dan API key di browser sebelum dikirim.
+- Unggah berkas dan dukungan format SARIF.
