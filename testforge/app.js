@@ -1377,18 +1377,127 @@ function renderWelcome() {
 /* =============================================================================
    SECTION 11: CHAT RENDERING
    ============================================================================= */
-function appendUserMessage(text) {
+function appendUserMessage(text, ts) {
   const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
   const wrap = document.createElement('div');
   wrap.className = 'msg-row msg-user';
+  if (ts) wrap.dataset.ts = String(ts);
+  const actions = ts ? `<div class='msg-actions' role='toolbar' aria-label='Aksi pesan'>${MSG_ACTIONS.map(a => `<button type='button' class='msg-act' data-act='${a.act}' aria-label='${a.label}' title='${a.label}'>${a.icon}</button>`).join('')}</div>` : '';
   wrap.innerHTML = `
     <div class="msg-meta">
       <span class="msg-sender">Anda</span>
       <span class="msg-time">${now}</span>
     </div>
-    <div class="msg-bubble user"><pre class="msg-pre">${escHtml(text)}</pre></div>`;
+    <div class="msg-bubble user"><pre class="msg-pre">${escHtml(text)}</pre></div>${actions}`;
   chatHistory_el.appendChild(wrap);
   scrollToBottom();
+}
+
+/* Aksi pada pesan pengguna: salin, edit, kirim ulang, simpan sesi, hapus */
+const MSG_ACTIONS = [
+  { act: 'copy', label: 'Salin', icon: `<svg width='14' height='14' viewBox='0 0 16 16' fill='none' aria-hidden='true'><rect x='5' y='5' width='8' height='8' rx='1.5' stroke='currentColor' stroke-width='1.3'/><path d='M3 10V4a1 1 0 011-1h6' stroke='currentColor' stroke-width='1.3' stroke-linecap='round'/></svg>` },
+  { act: 'edit', label: 'Edit', icon: `<svg width='14' height='14' viewBox='0 0 16 16' fill='none' aria-hidden='true'><path d='M3 13l.7-3L11 2.7a1.2 1.2 0 011.7 0l.6.6a1.2 1.2 0 010 1.7L6 12.3 3 13z' stroke='currentColor' stroke-width='1.3' stroke-linejoin='round'/></svg>` },
+  { act: 'resend', label: 'Kirim ulang', icon: `<svg width='14' height='14' viewBox='0 0 16 16' fill='none' aria-hidden='true'><path d='M13 8a5 5 0 11-1.5-3.5M13 3v3h-3' stroke='currentColor' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/></svg>` },
+  { act: 'save', label: 'Simpan sesi', icon: `<svg width='14' height='14' viewBox='0 0 16 16' fill='none' aria-hidden='true'><path d='M4 2h8v12l-4-3-4 3V2z' stroke='currentColor' stroke-width='1.3' stroke-linejoin='round'/></svg>` },
+  { act: 'delete', label: 'Hapus', icon: `<svg width='14' height='14' viewBox='0 0 16 16' fill='none' aria-hidden='true'><path d='M3 4h10M6 4V2.5h4V4M5 4l.5 9h5L11 4' stroke='currentColor' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/></svg>` },
+];
+
+function findHistoryIndex(ts) {
+  return chatHistory.findIndex(m => m.role === 'user' && String(m.timestamp) === String(ts));
+}
+
+function syncAfterHistoryChange() {
+  const lastAgent = [...chatHistory].reverse().find(m => m.role === 'agent');
+  lastTriageResult = lastAgent ? parseTriageResponse(lastAgent.text) : null;
+  if (!chatHistory.length) renderWelcome();
+}
+
+/** Hapus pesan ini beserta semua pesan sesudahnya (dipakai untuk edit dan kirim ulang). */
+function truncateFrom(row) {
+  const idx = findHistoryIndex(row.dataset.ts);
+  if (idx === -1) return false;
+  chatHistory = chatHistory.slice(0, idx);
+  while (row.nextElementSibling) row.nextElementSibling.remove();
+  row.remove();
+  syncAfterHistoryChange();
+  return true;
+}
+
+function resendFrom(row, text) {
+  if (isWaiting) { showToast('Tunggu respons selesai dulu.'); return; }
+  if (!truncateFrom(row)) return;
+  sendMessage(text);
+}
+
+function deleteMessagePair(row) {
+  if (isWaiting) { showToast('Tunggu respons selesai dulu.'); return; }
+  const idx = findHistoryIndex(row.dataset.ts);
+  if (idx === -1) return;
+  const removeCount = chatHistory[idx + 1] && chatHistory[idx + 1].role === 'agent' ? 2 : 1;
+  chatHistory.splice(idx, removeCount);
+  const next = row.nextElementSibling;
+  if (next && (next.classList.contains('msg-agent') || next.classList.contains('msg-error'))) next.remove();
+  row.remove();
+  syncAfterHistoryChange();
+  showToast('Pesan dihapus.');
+}
+
+function startEditMessage(row) {
+  if (isWaiting) { showToast('Tunggu respons selesai dulu.'); return; }
+  const idx = findHistoryIndex(row.dataset.ts);
+  if (idx === -1 || row.querySelector('.msg-edit')) return;
+  const bubble = row.querySelector('.msg-bubble.user');
+  const actions = row.querySelector('.msg-actions');
+  bubble.hidden = true;
+  actions.hidden = true;
+  const box = document.createElement('div');
+  box.className = 'msg-edit';
+  box.innerHTML = `<textarea class='msg-edit-input' rows='6' aria-label='Edit pesan'></textarea><div class='msg-edit-bar'><button type='button' class='msg-edit-cancel'>Batal</button><button type='button' class='msg-edit-send'>Kirim ulang</button></div>`;
+  const ta = box.querySelector('textarea');
+  ta.value = chatHistory[idx].text;
+  row.appendChild(box);
+  ta.focus();
+  const close = () => { box.remove(); bubble.hidden = false; actions.hidden = false; };
+  const send = () => {
+    const t = ta.value.trim();
+    if (!t) { showToast('Pesan tidak boleh kosong.'); return; }
+    resendFrom(row, t);
+  };
+  box.querySelector('.msg-edit-cancel').addEventListener('click', close);
+  box.querySelector('.msg-edit-send').addEventListener('click', send);
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); }
+  });
+}
+
+function copyMessageText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => showToast('Pesan disalin.'));
+    return;
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+  showToast('Pesan disalin.');
+}
+
+function initMessageActions() {
+  chatHistory_el.addEventListener('click', (e) => {
+    const btn = e.target.closest('.msg-act');
+    if (!btn) return;
+    const row = btn.closest('.msg-row.msg-user');
+    if (!row) return;
+    const idx = findHistoryIndex(row.dataset.ts);
+    const text = idx === -1 ? '' : chatHistory[idx].text;
+    switch (btn.dataset.act) {
+      case 'copy': copyMessageText(text); break;
+      case 'edit': startEditMessage(row); break;
+      case 'resend': if (text) resendFrom(row, text); break;
+      case 'save': saveCurrentSession(); break;
+      case 'delete': deleteMessagePair(row); break;
+    }
+  });
 }
 
 function appendTypingIndicator() {
@@ -1470,8 +1579,9 @@ async function sendMessage(text) {
   autoResizeTextarea(inputEl);
   updateInputCounter();
 
-  chatHistory.push({ role: 'user', text, timestamp: Date.now() });
-  appendUserMessage(text);
+  const msgTs = Date.now();
+  chatHistory.push({ role: 'user', text, timestamp: msgTs });
+  appendUserMessage(text, msgTs);
 
   const typingWrap = appendTypingIndicator();
 
@@ -2293,7 +2403,7 @@ function loadSession(sess) {
 
   for (const msg of chatHistory) {
     if (msg.role === 'user') {
-      appendUserMessage(msg.text);
+      appendUserMessage(msg.text, msg.timestamp);
     } else {
       const parsed = parseTriageResponse(msg.text);
       const typingWrap = appendTypingIndicator();
@@ -2425,6 +2535,7 @@ function initWelcomeModal() {
   initTheme();
   initLang();
   initSession();
+  initMessageActions();
   initDashboard();
   initScanDiff();
   initWelcomeModal();
