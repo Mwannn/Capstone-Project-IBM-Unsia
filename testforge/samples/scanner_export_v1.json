@@ -1,0 +1,79 @@
+{
+  "tool": "OWASP ZAP 2.14 (Mock Export)",
+  "scan_date": "2026-11-20T08:30:00Z",
+  "target": "https://app.contoh.id",
+  "findings": [
+    {
+      "id": "ZAP-001",
+      "name": "SQL Injection",
+      "risk": "High",
+      "confidence": "Medium",
+      "url": "https://app.contoh.id/login",
+      "parameter": "username",
+      "evidence": "Respons berbeda terdeteksi saat injeksi karakter SQL",
+      "cwe": "CWE-89",
+      "wasc": "WASC-19",
+      "root_cause_group": "Unparameterized SQL Queries"
+    },
+    {
+      "id": "ZAP-002",
+      "name": "Missing Anti-clickjacking Header",
+      "risk": "Medium",
+      "confidence": "Medium",
+      "url": "https://app.contoh.id/",
+      "parameter": null,
+      "evidence": "Header X-Frame-Options tidak ditemukan",
+      "cwe": "CWE-1021",
+      "wasc": "WASC-15",
+      "root_cause_group": "Missing HTTP Defense-in-Depth Headers"
+    },
+    {
+      "id": "ZAP-003",
+      "name": "Missing Anti-clickjacking Header",
+      "risk": "Medium",
+      "confidence": "Medium",
+      "url": "https://app.contoh.id/dashboard",
+      "parameter": null,
+      "evidence": "Header X-Frame-Options tidak ditemukan",
+      "cwe": "CWE-1021",
+      "wasc": "WASC-15",
+      "root_cause_group": "Missing HTTP Defense-in-Depth Headers"
+    },
+    {
+      "id": "ZAP-004",
+      "name": "Missing Anti-clickjacking Header",
+      "risk": "Medium",
+      "confidence": "Medium",
+      "url": "https://app.contoh.id/profile",
+      "parameter": null,
+      "evidence": "Header X-Frame-Options tidak ditemukan",
+      "cwe": "CWE-1021",
+      "wasc": "WASC-15",
+      "root_cause_group": "Missing HTTP Defense-in-Depth Headers"
+    },
+    {
+      "id": "ZAP-005",
+      "name": "X-Content-Type-Options Header Missing",
+      "risk": "Low",
+      "confidence": "Medium",
+      "url": "https://app.contoh.id/",
+      "parameter": null,
+      "evidence": "Header X-Content-Type-Options tidak ditemukan",
+      "cwe": "CWE-693",
+      "wasc": "WASC-15",
+      "root_cause_group": "Missing HTTP Defense-in-Depth Headers"
+    },
+    {
+      "id": "ZAP-006",
+      "name": "Reflected XSS",
+      "risk": "High",
+      "confidence": "Medium",
+      "url": "https://app.contoh.id/search",
+      "parameter": "q",
+      "evidence": "Input di-reflect tanpa encoding pada respons HTML",
+      "cwe": "CWE-79",
+      "wasc": "WASC-8",
+      "root_cause_group": "Lack of Context-Aware Output Encoding"
+    }
+  ]
+}

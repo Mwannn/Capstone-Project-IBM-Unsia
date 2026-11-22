@@ -1,0 +1,10 @@
+Issue Type,Severity,URL,Parameter,Evidence,CWE,Notes
+SQL Injection,Critical,https://api.contoh.id/v2/login,username,"Error-based SQLi detected: You have an error in your SQL syntax",CWE-89,Burp Active Scan
+Stored XSS,High,https://api.contoh.id/v2/comments,content,"Injected payload persists and executes for other users",CWE-79,Manual verification done
+IDOR,High,https://api.contoh.id/v2/users/{id}/data,user_id,"Sequential integer allows horizontal privilege escalation",CWE-284,Manual
+Missing CSP,Medium,https://api.contoh.id/,,"Content-Security-Policy header absent",CWE-693,Automated
+Missing CSP,Medium,https://api.contoh.id/dashboard,,"Content-Security-Policy header absent",CWE-693,Automated
+Missing CSP,Medium,https://api.contoh.id/profile,,"Content-Security-Policy header absent",CWE-693,Automated
+Missing CSP,Medium,https://api.contoh.id/settings,,"Content-Security-Policy header absent",CWE-693,Automated
+Sensitive Data Exposure,High,https://api.contoh.id/v2/debug/config,,"Stack trace and DB credentials visible in response",CWE-209,Manual
+Insecure Cookie,Low,https://api.contoh.id/,session,"Cookie missing Secure and HttpOnly flags",CWE-614,Automated
